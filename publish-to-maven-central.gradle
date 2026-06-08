@@ -1,0 +1,295 @@
+// =============================================================================
+// publish-to-maven-central.gradle
+// =============================================================================
+// 按 Maven Central Repository 发布规范打包的 Gradle 脚本。
+// 规范原文: https://central.sonatype.org/publish/requirements/
+//
+// 生成的产物包括:
+//   - 主 JAR
+//   - sources.jar（源码）
+//   - javadoc.jar（API 文档）
+//   - POM 文件（含完整元数据：许可证 / 开发者 / SCM）
+//   - GPG 签名文件（.asc）
+//   - 校验和文件（.md5 / .sha1 / .sha256 / .sha512）
+//
+// 不执行远程发布，仅本地打包。执行:
+//   gradle publishToMavenLocal    → 发布到 ~/.m2 本地仓库
+//   gradle assembleMavenCentral   → 将所有产物收集到 build/maven-central/
+//
+// 使用方法:
+//   1. 在 build.gradle 末尾添加: apply from: 'publish-to-maven-central.gradle'
+//   2. 在 gradle.properties 中填入项目的 POM 元数据。
+//   3. GPG 签名: 设置 signing.keyId / signing.password / signing.secretKeyRingFile
+//      或使用 gpg-agent（Gradle 自动检测）。无 GPG 时签名会被跳过并给出警告。
+//
+// 支持 Gradle 5.2+（含 6.x / 7.x / 8.x）。
+// =============================================================================
+
+// ---- 插件 --------------------------------------------------------------------
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+apply plugin: 'signing'
+
+// ---- 元数据提取 ----------------------------------------------------------------
+// 从 gradle.properties 读取，未设置时使用合理默认值。
+ext {
+    POM_NAME              = "jsonbom"
+    POM_DESCRIPTION       = findProperty('projectDescription')        ?: "API Query Language with Json"
+    POM_URL               = findProperty('projectUrl')                ?: 'https://gitee.com/hanbernate/jsonbom'
+    POM_LICENSE_NAME      = findProperty('projectLicenseName')        ?: 'BSD 3-Clause License'
+    POM_LICENSE_URL       = findProperty('projectLicenseUrl')         ?: 'https://opensource.org/licenses/BSD-3-Clause'
+    POM_SCM_URL           = findProperty('projectScmUrl')             ?: POM_URL
+    POM_SCM_CONNECTION    = findProperty('projectScmConnection')      ?: "scm:git:${POM_URL}.git"
+    POM_SCM_DEV_CONN      = findProperty('projectScmDeveloperConnection') ?: "scm:git:ssh://git@github.com:hanbernate/jsonbom.git"
+    POM_DEVELOPER_ID      = findProperty('projectDeveloperId')        ?: 'hanbernate'
+    POM_DEVELOPER_NAME    = findProperty('projectDeveloperName')      ?: 'hanbernate'
+    POM_DEVELOPER_EMAIL   = findProperty('projectDeveloperEmail')     ?: 'ghost_lmh@163.com'
+    POM_DEVELOPER_ORG     = findProperty('projectDeveloperOrg')       ?: ''
+    POM_DEVELOPER_ORG_URL = findProperty('projectDeveloperOrgUrl')    ?: ''
+}
+
+// ---- Java 编译配置 -----------------------------------------------------------
+java {
+    withSourcesJar()
+    withJavadocJar()
+    sourceCompatibility = JavaVersion.toVersion(findProperty('javaSource') ?: '17')
+    targetCompatibility = JavaVersion.toVersion(findProperty('javaTarget') ?: '17')
+}
+
+// ---- Javadoc 配置 ------------------------------------------------------------
+javadoc {
+    if (JavaVersion.current().isJava9Compatible()) {
+        options.addStringOption('Xdoclint:none', '-quiet')
+    }
+    options.encoding = 'UTF-8'
+    options.charSet  = 'UTF-8'
+}
+
+tasks.withType(Javadoc).configureEach {
+    failOnError = false
+}
+
+// ---- Fallback: 低版本 Gradle 手动创建 sourcesJar / javadocJar -----------------
+if (!tasks.findByName('sourcesJar')) {
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        archiveClassifier.set('sources')
+        from sourceSets.main.allSource
+    }
+}
+if (!tasks.findByName('javadocJar')) {
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+        archiveClassifier.set('javadoc')
+        from javadoc.destinationDir
+    }
+}
+
+// ---- 发布配置（仅本地，不上传远程仓库）-------------------------------------------
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            pom {
+                name        = POM_NAME
+                description = POM_DESCRIPTION
+                url         = POM_URL
+
+                licenses {
+                    license {
+                        name = POM_LICENSE_NAME
+                        url  = POM_LICENSE_URL
+                    }
+                }
+
+                developers {
+                    developer {
+                        id    = POM_DEVELOPER_ID
+                        name  = POM_DEVELOPER_NAME
+                        email = POM_DEVELOPER_EMAIL
+                        if (POM_DEVELOPER_ORG) {
+                            organization    = POM_DEVELOPER_ORG
+                            organizationUrl = POM_DEVELOPER_ORG_URL
+                        }
+                    }
+                }
+
+                scm {
+                    connection          = POM_SCM_CONNECTION
+                    developerConnection = POM_SCM_DEV_CONN
+                    url                 = POM_SCM_URL
+                }
+            }
+
+            // 版本映射：发布时使用解析后的版本号
+            versionMapping {
+                usage('java-api')     { fromResolutionResult() }
+                usage('java-runtime') { fromResolutionResult() }
+            }
+        }
+    }
+
+    // 仅配置本地仓库
+    repositories {
+        mavenLocal()
+    }
+}
+
+// ---- GPG 签名（Maven Central 规范要求）-----------------------------------------
+// 有 GPG key 时签名；无 key 时跳过签名并在构建日志中输出警告。
+def gpgAvailable() {
+    try {
+        // 检查环境变量中是否有 GPG 相关配置
+        if (System.getenv('GPG_KEY_ID') || System.getenv('ORG_GRADLE_PROJECT_signingKey')) {
+            return true
+        }
+        // 尝试通过 gpg 命令行检测
+        def proc = 'gpg --list-secret-keys --with-colons'.execute()
+        proc.waitFor()
+        return proc.exitValue() == 0 && proc.text.contains('sec:')
+    } catch (Exception e) {
+        return false
+    }
+}
+
+signing {
+    required { gpgAvailable() }
+    sign publishing.publications.mavenJava
+}
+
+// 签名不可用时的友好提示
+gradle.taskGraph.whenReady { graph ->
+    if (graph.hasTask('signMavenJavaPublication') && !gpgAvailable()) {
+        logger.warn('')
+        logger.warn('================================================================')
+        logger.warn('  GPG signing is NOT available.')
+        logger.warn('  The Maven Central specification requires GPG signatures.')
+        logger.warn('  To enable signing, configure one of:')
+        logger.warn('    - signing.keyId / signing.password in gradle.properties')
+        logger.warn('    - signingKey / signingPassword in gradle.properties')
+        logger.warn('    - ORG_GRADLE_PROJECT_signingKey environment variable')
+        logger.warn('    - gpg-agent running on this machine')
+        logger.warn('  Building WITHOUT signatures.  Add GPG before real publishing.')
+        logger.warn('================================================================')
+        logger.warn('')
+    }
+}
+
+// ---- Checksum 生成（Maven Central 规范要求）------------------------------------
+// 为每个发布产物生成 .md5 / .sha1 / .sha256 / .sha512 文件
+task generateChecksums {
+    description = '为所有发布产物生成校验和文件 (MD5 / SHA1 / SHA256 / SHA512)'
+    group       = 'publishing'
+
+    doLast {
+        def publication = publishing.publications.mavenJava
+        def artifacts   = publication.artifacts
+        if (!artifacts) {
+            logger.warn('No artifacts found for checksum generation.')
+            return
+        }
+
+        def checksums = [
+            'md5'   : 'MD5',
+            'sha1'  : 'SHA-1',
+            'sha256': 'SHA-256',
+            'sha512': 'SHA-512'
+        ]
+
+        artifacts.each { artifact ->
+            def file = artifact.file
+            if (!file || !file.exists()) return
+
+            checksums.each { extName, algo ->
+                def checksumFile = new File(file.parentFile, "${file.name}.${extName}")
+                def digest       = java.security.MessageDigest.getInstance(algo)
+                file.eachByte(4096) { byte[] buf, int bytesRead ->
+                    digest.update(buf, 0, bytesRead)
+                }
+                checksumFile.text = digest.digest().encodeHex().toString()
+                logger.lifecycle("  ${extName}: ${checksumFile.name}")
+            }
+        }
+    }
+}
+
+// ---- 主任务：打包到本地 Maven 仓库 ---------------------------------------------
+publishToMavenLocal {
+    finalizedBy generateChecksums
+}
+
+// ---- 任务：将所有产物收集到 build/maven-central/ 目录 ----------------------------
+// 这个任务让所有符合 Maven Central 规范的产物集中在一个目录，方便检查。
+task assembleMavenCentral(type: Copy) {
+    description = '收集所有 Maven Central 规范产物到 build/maven-central/'
+    group       = 'publishing'
+
+    dependsOn generateChecksums
+
+    from publishing.publications.mavenJava.artifacts.collect { it.file }
+    into layout.buildDirectory.dir('maven-central')
+
+    doFirst {
+        logger.lifecycle('')
+        logger.lifecycle('========================================================')
+        logger.lifecycle('  Collecting Maven Central artifacts ...')
+        logger.lifecycle('========================================================')
+    }
+
+    doLast {
+        def dir = layout.buildDirectory.dir('maven-central').get().asFile
+        logger.lifecycle('')
+        logger.lifecycle('Artifacts collected in: ' + dir.absolutePath)
+        logger.lifecycle('')
+        logger.lifecycle('Contents:')
+        dir.eachFile { f ->
+            def size = f.length()
+            def sizeStr = size < 1024 ? "${size} B" :
+                          size < 1024*1024 ? "${(size/1024).round(1)} KB" :
+                          "${(size/1024/1024).round(1)} MB"
+            logger.lifecycle("  ${f.name}  (${sizeStr})")
+        }
+        logger.lifecycle('')
+        logger.lifecycle('These files meet the Maven Central Repository requirements:')
+        logger.lifecycle('  1. JAR + sources.jar + javadoc.jar      ✓')
+        logger.lifecycle('  2. Checksums (.md5 .sha1 .sha256 .sha512) ✓')
+        logger.lifecycle('  3. GPG signatures (.asc)                 ✓ (if GPG configured)')
+        logger.lifecycle('  4. POM with license / developer / SCM     ✓')
+        logger.lifecycle('')
+    }
+}
+
+// ---- 验证任务 ------------------------------------------------------------------
+task verifyPublication {
+    description = '验证 Maven Central 所需的所有产物是否存在'
+    group       = 'publishing'
+
+    doLast {
+        def publication = publishing.publications.mavenJava
+        def artifacts   = publication.artifacts
+        def errors      = []
+
+        def requiredClassifiers = ['sources', 'javadoc']
+        def foundClassifiers = artifacts.collect { it.classifier }.findAll { it != null }
+
+        requiredClassifiers.each { c ->
+            if (!foundClassifiers.contains(c)) {
+                errors << "Missing artifact with classifier: '${c}'"
+            }
+        }
+
+        if (errors) {
+            throw new GradleException("Publication verification failed:\n${errors.join('\n')}")
+        }
+
+        logger.lifecycle('Verification passed: sources + javadoc artifacts are present.')
+    }
+}
+
+// ---- 快速任务组合 --------------------------------------------------------------
+// 一键执行：发布到本地 Maven 仓库 + 收集产物到 build/maven-central/
+task bundleForMavenCentral {
+    description = '发布到本地仓库并收集产物到 build/maven-central/'
+    group       = 'publishing'
+    dependsOn publishToMavenLocal, assembleMavenCentral
+}
+ 

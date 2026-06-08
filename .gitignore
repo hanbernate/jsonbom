@@ -1,0 +1,6 @@
+deepseek-tui-windows-x64.exe
+.deepseek
+.gradle
+.vscode
+bin
+build
