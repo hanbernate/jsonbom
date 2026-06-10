@@ -15,7 +15,15 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
+/**
+ * Reactive JSON BOM mapper implementation using Project Reactor and Spring Framework.
+ * <p>
+ * This mapper provides reactive streaming support for transforming BOM structures
+ * into Java objects using Spring's BeanUtils and Reactor's reactive types.
+ *
+ * @author hanbernate
+ * @since 0.0.1
+ */
 public class ReactorJsonBomMapper implements JsonBomMapper {
 
     private ValueHandlers valueHandlers;
@@ -24,43 +32,83 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
 
     private BomAdapter bomAdapter;
 
+    /**
+     * Constructs a new ReactorJsonBomMapper with default Spring-based dependencies.
+     * <p>
+     * Initializes:
+     * <ul>
+     *     <li>{@link SpringBeanUtil} for bean introspection</li>
+     *     <li>{@link DefaultValueHandlersImpl} for value handler management</li>
+     *     <li>{@link DefaultSchemaFactoryImpl} for schema creation</li>
+     *     <li>{@link BomAdapter} for BOM transformation</li>
+     * </ul>
+     *
+     * @since 0.0.1
+     */
     public ReactorJsonBomMapper(){
         BeanUtil beanUtil = new SpringBeanUtil();
-
-        ValueHandlersImpl valueHandlers = new ValueHandlersImpl();
-        valueHandlers.setBeanUtil(beanUtil);
-        this.valueHandlers = valueHandlers;
-
-        SchemaFactoryImpl schemaFactory = new SchemaFactoryImpl();
-        schemaFactory.setBeanUtil(beanUtil);
-        schemaFactory.setValueHandlers(this.valueHandlers);
-        this.schemaFactory = schemaFactory;
-
-        this.bomAdapter = BomAdapterImpl.init(schemaFactory);
+        this.valueHandlers = createValueHandlers(beanUtil);
+        this.schemaFactory = createSchemaFactory(beanUtil, this.valueHandlers);
+        this.bomAdapter = BomAdapter.init(schemaFactory);
     }
 
+    private ValueHandlers createValueHandlers(BeanUtil beanUtil){
+        DefaultValueHandlersImpl instance = new DefaultValueHandlersImpl();
+        instance.setBeanUtil(beanUtil);
+        return instance;
+    }
+
+    private SchemaFactory createSchemaFactory(BeanUtil beanUtil, ValueHandlers valueHandlers){
+        DefaultSchemaFactoryImpl instance = new DefaultSchemaFactoryImpl();
+        instance.setBeanUtil(beanUtil);
+        instance.setValueHandlers(valueHandlers);
+        return instance;
+    }
+
+    /**
+     * Sets a custom name parser for converting Field objects to schema names.
+     *
+     * @param nameParser the name parser function
+     *
+     * @since 0.0.1
+     */
     public void setNameParser(Function<Field, String> nameParser){
         this.schemaFactory.setNameParser(nameParser);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.1
+     */
     @Override
-    public <T> Schema<T> registrySchemaIfAbsent(Class<T> responseType) {
+    public <T> Schema<T> registerSchemaIfAbsent(Class<T> responseType) {
         return this.schemaFactory.getByType(responseType);
     }
 
-    @Override
-    public ValueHandler<?> registryValueHandler(Class<?> type, ValueHandler<?> valueHandler) {
-        return this.valueHandlers.registry(type, valueHandler);
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.1
+     */
+   @Override
+    public ValueHandler<?> registerValueHandler(Class<?> type, ValueHandler<?> valueHandler) {
+        return this.valueHandlers.register(type, valueHandler);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.1
+     */
     @Override
     public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType, Map<String, Publisher<?>> models) {
         return ((Mono<Bom>) bomPublisher)
                 .flatMap(bom ->{
-                    Schema<T> reponseSchema = registrySchemaIfAbsent(responseType);
+                    Schema<T> responseSchema = registerSchemaIfAbsent(responseType);
                     Mono<T> result = Mono.just(BeanUtils.instantiateClass(responseType));
                     for(Map.Entry<String, BomOrValue> entry : bom.entrySet()){
-                        Schema<?> childSchema = reponseSchema.getChildren().get(entry.getKey());
+                        Schema<?> childSchema = responseSchema.getChildren().get(entry.getKey());
                         BomOrValue child = entry.getValue();
                         Mono<?> fieldPublisher = visit(models, child, childSchema);
                         result = result.zipWith(fieldPublisher, (r, v) ->{
@@ -68,7 +116,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                                 try {
                                     childSchema.getWriteMethod().invoke(r, v);
                                 } catch (IllegalAccessException | InvocationTargetException e) {
-                                    throw new RuntimeException(e);
+                                    throw new JsonBomException("Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + v.toString() + ")", e);
                                 }
                             }
                             return r;
@@ -80,53 +128,48 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 });
     }
 
-    private <T> Mono<T> visit(Map<String, Publisher<?>> models, BomOrValue bomOrValue, Schema<T> reponseSchema){
-        if(null == reponseSchema){
+    private <T> Mono<T> visit(Map<String, Publisher<?>> models, BomOrValue bomOrValue, Schema<T> responseSchema){
+        if(null == responseSchema){
             return Mono.empty();
         }
 
-        String path = 0 == reponseSchema.getPath().size() ? "" : reponseSchema.getPath().get(0);
+        String path = 0 == responseSchema.getPath().size() ? "" : responseSchema.getPath().get(0);
         Publisher<?> model = models.get(path);
         if(model instanceof Flux<?>){
             Flux<?> fluxResult = ((Flux<?>) model).cache().map(m -> {
-                try {
-                    return visit(bomOrValue, m, reponseSchema, 1, true);
-                } catch (InvocationTargetException | IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
+                return visit(bomOrValue, m, responseSchema, 1, true);
             });
 
-            if (reponseSchema.getResponseType().isArray()) {
-                throw new RuntimeException();
+            if (responseSchema.getResponseType().isArray()) {
+                throw new JsonBomException("Flux cannot be converted to array");
             }
 
-            if (List.class.isAssignableFrom(reponseSchema.getResponseType())) {
+            if (List.class.isAssignableFrom(responseSchema.getResponseType())) {
                 return (Mono<T>) fluxResult.collect(Collectors.toList());
             }
 
-            if (Set.class.isAssignableFrom(reponseSchema.getResponseType())) {
+            if (Set.class.isAssignableFrom(responseSchema.getResponseType())) {
                 return (Mono<T>) fluxResult.collect(Collectors.toSet());
             }
-            throw new RuntimeException();
+            throw new JsonBomException("Flux cannot be converted to " + responseSchema.getResponseType().getName());
 
         }else{
             return ((Mono<?>) model).cache().map(m -> {
-                try {
-                    return visit(bomOrValue, m, reponseSchema, 1, false);
-                } catch (InvocationTargetException | IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
+                return visit(bomOrValue, m, responseSchema, 1, false);
             });
         }
     }
 
-    private <T> T visit(BomOrValue bomOrValue, Object parentModel, Schema<T> current, int startIdx, boolean useActualType) throws InvocationTargetException, IllegalAccessException {
+    private <T> T visit(BomOrValue bomOrValue, Object parentModel, Schema<T> current, int startIdx, boolean useActualType) throws JsonBomException {
+        if(null == parentModel){
+            return null;
+        }
         Object currentModel = getModelByPath(current.getPath(), parentModel, startIdx);
         switch (bomOrValue.getType()){
             case BOM : return visitBom(bomOrValue, currentModel, current, useActualType);
             case VALUE : return visitValue(bomOrValue, currentModel, current);
             default:
-                throw new RuntimeException();
+                throw new JsonBomException("Unknown type:" + bomOrValue.getType());
         }
     }
 
@@ -135,18 +178,14 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         return null != valueHandler ? valueHandler.apply(currentModel, bomOrValue.value()) : (T) currentModel;
     }
 
-    private <T> T visitBom(BomOrValue bomOrValue, Object currentModel, Schema<?> current, boolean useActualType) throws InvocationTargetException, IllegalAccessException {
+    private <T> T visitBom(BomOrValue bomOrValue, Object currentModel, Schema<?> current, boolean useActualType) throws JsonBomException {
         if(!current.isResponseCollection() || useActualType){
             return (T) writeObject(bomOrValue.bom(), currentModel, current, current.getActualType());
         }
 
         Stream<?> stream = toStream(currentModel)
                 .map(m -> {
-                    try {
-                        return writeObject(bomOrValue.bom(), m, current, current.getActualType());
-                    } catch (InvocationTargetException | IllegalAccessException e) {
-                        throw new RuntimeException(e);
-                    }
+                    return writeObject(bomOrValue.bom(), m, current, current.getActualType());
                 });
 
         if (current.getResponseType().isArray()) {
@@ -161,10 +200,10 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
             return (T) stream.collect(Collectors.toSet());
         }
 
-        throw new RuntimeException();
+        throw new JsonBomException("Unknown responseType:" + current.getResponseType().getName());
     }
 
-    private <T> T writeObject(Bom bom, Object model, Schema<?> current, Class<T> type) throws InvocationTargetException, IllegalAccessException {
+    private <T> T writeObject(Bom bom, Object model, Schema<?> current, Class<T> type) throws JsonBomException {
         T result = BeanUtils.instantiateClass(type);
         for(Map.Entry<String, BomOrValue> entry : bom.entrySet()){
             Schema<?> childSchema = current.getChildren().get(entry.getKey());
@@ -173,7 +212,11 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 Object fieldValue = visit(child, model, childSchema, 0, false);
                 if(null != fieldValue &&( childSchema.getResponseType().isPrimitive()
                     || fieldValue.getClass().isPrimitive() || childSchema.getResponseType().isAssignableFrom(fieldValue.getClass()))) {
-                    childSchema.getWriteMethod().invoke(result, fieldValue);
+                    try{
+                        childSchema.getWriteMethod().invoke(result, fieldValue);
+                    }catch(IllegalAccessException | InvocationTargetException e){
+                         throw new JsonBomException("Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + fieldValue.toString() + ")", e);
+                    }
                 }
             }
         }
@@ -230,7 +273,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
             }
             return pd.getReadMethod().invoke(model);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
+            throw new JsonBomException("Fail to read value for field"+ p + " for " + model.getClass().getName(), e);
         }
     };
 
@@ -243,28 +286,38 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         return currentModel;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.1
+     */
     @Override
-    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPubliasher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels) {
-        Publisher<Bom> modelBomPublisher = Mono.from(targetBomPubliasher)
+    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels) {
+        Publisher<Bom> modelBomPublisher = Mono.from(targetBomPublisher)
                 .map(bom -> bomAdapter.transformBom(bom, targetType));
         Mono<U> modelResult = ((Mono<U>) map(modelBomPublisher, modelType, sourceModels)).cache();
-        Map<String, Publisher<?>> targetModels = this.registrySchemaIfAbsent(modelType).getChildren()
+        Map<String, Publisher<?>> targetModels = this.registerSchemaIfAbsent(modelType).getChildren()
                 .entrySet()
                 .stream()
-                .filter(entry -> null != entry.getValue().getReadMeothd())
+                .filter(entry -> null != entry.getValue().getReadMethod())
                 .collect(Collectors.toMap(Map.Entry::getKey, entry->{
                     Schema<?> schema = entry.getValue();
                     return  modelResult.map(u -> {
                         try {
-                            return schema.getReadMeothd().invoke(u);
+                            return schema.getReadMethod().invoke(u);
                         } catch (IllegalAccessException | InvocationTargetException e ) {
-                            throw new RuntimeException(e);
+            throw new JsonBomException("Fail to read value for schema" + schema.toString4Exception(schemaFactory.getSeparator()) + " in " + u.getClass().getName(), e);
                         }
                     });
                 }));
-        return map(targetBomPubliasher, targetType, targetModels);
+        return map(targetBomPublisher, targetType, targetModels);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.1
+     */
     @Override
     public BomAdapter getBomAdapter(){
         return this.bomAdapter;

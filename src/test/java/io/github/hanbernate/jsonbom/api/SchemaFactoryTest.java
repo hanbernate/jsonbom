@@ -19,11 +19,11 @@ public class SchemaFactoryTest {
     public SchemaFactoryTest(){
         BeanUtil beanUtil = new SpringBeanUtil();
 
-        ValueHandlersImpl valueHandlers = new ValueHandlersImpl();
+        DefaultValueHandlersImpl valueHandlers = new DefaultValueHandlersImpl();
         valueHandlers.setBeanUtil(beanUtil);
         this.valueHandlers = valueHandlers;
 
-        SchemaFactoryImpl schemaFactory = new SchemaFactoryImpl();
+        DefaultSchemaFactoryImpl schemaFactory = new DefaultSchemaFactoryImpl();
         schemaFactory.setBeanUtil(beanUtil);
         schemaFactory.setValueHandlers(this.valueHandlers);
         this.schemaFactory = schemaFactory;
@@ -185,7 +185,7 @@ public class SchemaFactoryTest {
     @Test
     public void registeredType(){
         ValueHandler<TestRegister> valueHandler = (model, bomValue) -> new TestRegister();
-        valueHandlers.registry(TestRegister.class, valueHandler);
+        valueHandlers.register(TestRegister.class, valueHandler);
         class TestType{
             @BomMapping("model")
             TestRegister field;

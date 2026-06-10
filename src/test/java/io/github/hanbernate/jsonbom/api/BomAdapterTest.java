@@ -27,7 +27,7 @@ public class BomAdapterTest {
     public BomAdapterTest(){
         ReactorJsonBomMapper mapper = new ReactorJsonBomMapper();
         mapper.setNameParser(new JacksonNameParser());
-        mapper.registryValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
+        mapper.registerValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
         this.bomAdapter = mapper.getBomAdapter();
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -52,5 +52,10 @@ public class BomAdapterTest {
         assertEquals(Type.BOM, modelNode.getType());
 
         assertEquals(4, modelNode.bom().size());
+    }
+
+    @Test
+    public void test(){
+        assertTrue("jsonbom-0.0.1.module.md5".contains(".module"));
     }
 }

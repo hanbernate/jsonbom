@@ -36,7 +36,7 @@ public class ReactorJsonBomMapperTest {
     public ReactorJsonBomMapperTest(){
         ReactorJsonBomMapper mapper = new ReactorJsonBomMapper();
         mapper.setNameParser(new JacksonNameParser());
-        mapper.registryValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
+        mapper.registerValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
         this.bomMapper = mapper;
 
         ObjectMapper objectMapper = new ObjectMapper();
