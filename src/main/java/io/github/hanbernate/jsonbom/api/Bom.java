@@ -1,6 +1,7 @@
 package io.github.hanbernate.jsonbom.api;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Represents a Bill of Materials (BOM) node that extends HashMap with String keys
@@ -49,5 +50,20 @@ public class Bom extends HashMap<String, BomOrValue>{
                 exists.merge(entry.getKey(), entry.getValue());
             });
         return this;
+    }
+
+    /**
+     * Creates a {@link Bom} instance from a {@link Map} of {@link BomOrValue} entries.
+     * <p>
+     * This factory method streams the map entries and collects them into a new {@link Bom}
+     *
+     * @param map the source map containing {@code String} keys and {@link BomOrValue} values;
+     *            must not be {@code null}
+     * @return a new {@link Bom} instance populated with the merged entries from the map
+     * @since 0.0.1
+     */
+    public static Bom createBomFromMap(Map<String, BomOrValue> map){
+        return map.entrySet().stream()
+            .collect(new BomCollectorImpl<>(Entry::getKey, Entry::getValue));
     }
 }

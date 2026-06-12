@@ -125,6 +125,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         return null != exists ? exists : result;
     }
 
+    @SuppressWarnings("unchecked")
     private <T> Schema<T> create(Schema<?> parent, Field f){
         BomMapping bomMapping = f.getAnnotation(BomMapping.class);
 

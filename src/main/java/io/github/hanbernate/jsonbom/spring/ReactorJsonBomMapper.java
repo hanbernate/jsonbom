@@ -128,6 +128,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 });
     }
 
+    @SuppressWarnings("unchecked")
     private <T> Mono<T> visit(Map<String, Publisher<?>> models, BomOrValue bomOrValue, Schema<T> responseSchema){
         if(null == responseSchema){
             return Mono.empty();
@@ -173,11 +174,13 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private <T> T visitValue(BomOrValue bomOrValue, Object currentModel, Schema<T> current){
         ValueHandler<T> valueHandler = current.getValueHandler();
         return null != valueHandler ? valueHandler.apply(currentModel, bomOrValue.value()) : (T) currentModel;
     }
 
+    @SuppressWarnings("unchecked")
     private <T> T visitBom(BomOrValue bomOrValue, Object currentModel, Schema<?> current, boolean useActualType) throws JsonBomException {
         if(!current.isResponseCollection() || useActualType){
             return (T) writeObject(bomOrValue.bom(), currentModel, current, current.getActualType());
@@ -223,6 +226,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
     private <T> Stream<T> toStream(Object model){
         if(model instanceof Collection<?>){
             return ((Collection<T>) model).stream();
@@ -231,6 +235,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         return Arrays.stream((T[]) model);
     }
 
+    @SuppressWarnings("unchecked")
     private static final BiFunction<Object,String, ?> mapFunc = (model , p) -> {
         try {
             if(model instanceof byte[]){
