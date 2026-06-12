@@ -5,4 +5,4 @@
 ## [Unreleased]
 
 ### Added
-- 支持通过map或者其他集合类创建Bom
+- 支持通过map或者其他集合类/字符串数组创建Bom

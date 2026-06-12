@@ -19,8 +19,14 @@ public class BomTest {
     }
     
     @Test
-    public void testCreateWithEmptyValue(){
+    public void testCreateWithEmptyValue4Collection(){
         Bom bom = Bom.createWithEmptyValue(List.of("a","b","c"));
         assertEquals(3, bom.size());
+    }
+    
+    @Test
+    public void testCreateWithEmptyValue4Array(){
+        Bom bom = Bom.createWithEmptyValue(List.of("a","b","c","d"));
+        assertEquals(4, bom.size());
     }
 }
