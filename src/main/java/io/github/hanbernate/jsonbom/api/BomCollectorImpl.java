@@ -32,7 +32,7 @@ import java.util.stream.Collector;
  *
  * @param <T> the type of input elements to be collected
  * @author hanbernate
- * @since 0.0.1
+ * @since 0.0.2
  */
 public class BomCollectorImpl<T> implements Collector<T, Bom , Bom>{
 

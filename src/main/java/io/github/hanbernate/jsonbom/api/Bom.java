@@ -1,5 +1,6 @@
 package io.github.hanbernate.jsonbom.api;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -60,10 +61,27 @@ public class Bom extends HashMap<String, BomOrValue>{
      * @param map the source map containing {@code String} keys and {@link BomOrValue} values;
      *            must not be {@code null}
      * @return a new {@link Bom} instance populated with the merged entries from the map
-     * @since 0.0.1
+     * @since 0.0.2
      */
-    public static Bom createBomFromMap(Map<String, BomOrValue> map){
+    public static Bom createFromMap(Map<String, BomOrValue> map){
         return map.entrySet().stream()
             .collect(new BomCollectorImpl<>(Entry::getKey, Entry::getValue));
+    }
+
+    /**
+     * Creates a {@link Bom} instance where each key maps to an empty value.
+     * <p>
+     * This factory method initializes a BOM with the specified keys, each associated
+     * with {@link BomOrValue#EMPTY} as a placeholder. The resulting BOM can be used
+     * as a structural skeleton that is later populated via {@link #merge(String, BomOrValue)}.
+     *
+     * @param keys the collection of keys to initialize in the BOM;
+     *             must not be {@code null}
+     * @return a new {@link Bom} instance containing each key mapped to an empty value
+     * @since 0.0.2
+     */
+    public static Bom createWithEmptyValue(Collection<String> keys){
+        return keys.stream()
+            .collect(new BomCollectorImpl<>(k -> k, k -> BomOrValue.EMPTY));
     }
 }
