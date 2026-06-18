@@ -2,6 +2,7 @@ package io.github.hanbernate.jsonbom.api;
 
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -171,7 +172,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         if(Void.class != getBomMappingValue(bomMapping, BomMapping::genericType, Void.class)) {
             result.setActualType((Class<T>) bomMapping.genericType());
         }else if(result.isResponseCollection()){
-            throw new NullPointerException("genericType cannot be null for " + result.getResponseType().getName());
+            result.setActualType((Class<T>) ((ParameterizedType) f.getGenericType()).getActualTypeArguments()[0]);
         }
 
         // Determine if this field should be treated as a leaf (value node)

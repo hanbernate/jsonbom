@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.CollectionUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -149,6 +150,23 @@ public class SchemaFactoryTest {
 
         assertEquals(1, list.getChildren().size());
         assertTrue(list.getChildren().containsKey("integer"));
+
+        class NoAnnotation{
+            List<TestSubType> list;
+
+            public void setList(List<TestSubType> list) {
+                this.list = list;
+            }
+
+        }
+        
+        Schema<NoAnnotation> rs2 = schemaFactory.getByType(NoAnnotation.class);
+        list = rs2.getChildren().get("list");
+        assertEquals(List.class, list.getResponseType());
+        assertEquals(TestSubType.class, list.getActualType());
+
+        assertEquals(1, list.getChildren().size());
+        assertTrue(list.getChildren().containsKey("integer"));
     }
     public static class TestValueHandler implements ValueHandler<Integer>{
         @Override
@@ -259,5 +277,29 @@ public class SchemaFactoryTest {
     @Test
     public void valueNode(){
 
+        class ValueNode {
+
+            private Integer intValue;
+
+            public void setIntValue(Integer intValue){
+                this.intValue = intValue;
+            }
+                   
+        }
+        class Type {
+            @BomMapping(value="valueModel", valueNode = true)
+            ValueNode value;
+
+            public void setValue(ValueNode value) {
+                this.value = value;
+            }
+        }
+        Schema<Type> rs = schemaFactory.getByType(Type.class);
+        Map<String, Schema<?>> children = rs.getChildren();
+        assertEquals(1, children.size());
+        Schema<?> childSchema = children.get("value");
+        assertEquals(0, childSchema.getChildren().size());
+
     }
+    
 }
