@@ -3,6 +3,8 @@ package io.github.hanbernate.jsonbom.spring;
 import io.github.hanbernate.jsonbom.api.*;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.BeanUtils;
+import org.springframework.util.ReflectionUtils;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -11,6 +13,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -31,6 +34,8 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
     private SchemaFactory schemaFactory;
 
     private BomAdapter bomAdapter;
+
+    private Map<Class<?>, List<PropertyDescriptor>> modelsCache = new ConcurrentHashMap<>();
 
     /**
      * Constructs a new ReactorJsonBomMapper with default Spring-based dependencies.
@@ -126,6 +131,39 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
 
                     return result;
                 });
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.2
+     */
+    @Override
+    public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType, Object models) {
+        return map(bomPublisher, responseType, obj2Map(models));
+    }
+
+    private Map<String, Publisher<?>> obj2Map(Object models){
+        return computePropertyDescriptors(models.getClass())
+            .stream()
+            .map(pd -> {
+                try {
+                    return new AbstractMap.SimpleImmutableEntry<String, Publisher<?>>(pd.getName(), (Publisher<?>) pd.getReadMethod().invoke(models));
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    throw new JsonBomException("Fail read property:" + pd.getName(), e);
+                }
+            }).filter(i -> null != i.getValue())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        
+
+    }
+
+    private List<PropertyDescriptor> computePropertyDescriptors(Class<?> cls){
+        return modelsCache.computeIfAbsent(cls, c -> {
+            return Arrays.stream(BeanUtils.getPropertyDescriptors(c))
+                .filter(pd -> Publisher.class.isAssignableFrom(pd.getPropertyType()))
+                .collect(Collectors.toList());
+        });
     }
 
     @SuppressWarnings("unchecked")
@@ -316,6 +354,16 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                     });
                 }));
         return map(targetBomPublisher, targetType, targetModels);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.1
+     */
+    @Override
+    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, Object sourceModels) {
+        return map(targetBomPublisher, targetType, modelType, obj2Map(sourceModels));
     }
 
     /**
