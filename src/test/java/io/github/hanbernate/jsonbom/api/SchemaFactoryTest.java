@@ -6,7 +6,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.CollectionUtils;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -126,7 +125,7 @@ public class SchemaFactoryTest {
     }
 
     @Test
-    public void genericType(){
+    public void genericType() throws Exception{
         class TestSubType{
             @BomMapping("int")
             Integer integer;
@@ -162,6 +161,43 @@ public class SchemaFactoryTest {
         
         Schema<NoAnnotation> rs2 = schemaFactory.getByType(NoAnnotation.class);
         list = rs2.getChildren().get("list");
+        assertEquals(List.class, list.getResponseType());
+        assertEquals(TestSubType.class, list.getActualType());
+
+        assertEquals(1, list.getChildren().size());
+        assertTrue(list.getChildren().containsKey("integer"));
+    }
+
+    @Test
+    public void nestInheritanceGeneric() throws Exception{
+        class TestSubType{
+            @BomMapping("int")
+            Integer integer;
+
+            public void setInteger(Integer integer) {
+                this.integer = integer;
+            }
+        }
+
+
+        abstract class GrandParent<T>{
+            List<T> list;
+
+            public void setList(List<T> list){
+                this.list = list;
+            }
+        }
+
+        class Parent<T> extends GrandParent<T>{
+
+        }
+
+        class Child extends Parent<TestSubType>{
+
+        }
+        
+        Schema<Child> rs = schemaFactory.getByType(Child.class);
+        Schema<?> list = rs.getChildren().get("list");
         assertEquals(List.class, list.getResponseType());
         assertEquals(TestSubType.class, list.getActualType());
 
