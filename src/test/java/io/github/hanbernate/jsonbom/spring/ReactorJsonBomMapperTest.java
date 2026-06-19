@@ -106,6 +106,22 @@ public class ReactorJsonBomMapperTest {
     }
 
     @Test
+    public void wrongBom() throws IOException {
+        Monos monos = new Monos(Mono.just(new Model(2, 3, "abc")), Mono.just(1), null, null);
+
+        Map<String, Publisher<?>> models = Map.of("model", monos.getModel(), "primitive", monos.getPrimitive());
+
+        String json = "{\"primitive\":\"\",\"chil\":{\"primitive\":\"\",\"boxed\":\"\",\"type\":\"\",\"string\":\"\"}}";
+        Bom bom = jsonMapper.readValue(json, Bom.class);
+
+        RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
+        assertNotNull(result);
+        assertEquals(1, result.getPrimitive());
+        assertNull(result.getBoxed());
+        assertNull(result.getChild());
+    }
+
+    @Test
     public void noModelAttributeExists() throws IOException {
 
         class Model{
