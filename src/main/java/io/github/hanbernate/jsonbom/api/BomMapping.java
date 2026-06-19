@@ -57,6 +57,7 @@ public @interface BomMapping {
      * @return the value handler class to use for this field
      * @since 0.0.1
      */
+    @SuppressWarnings("rawtypes")
     Class<? extends ValueHandler> valueHandler() default ValueHandler.class;
     
     /**

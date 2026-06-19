@@ -3,6 +3,8 @@ package io.github.hanbernate.jsonbom.spring;
 import io.github.hanbernate.jsonbom.api.*;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.BeanUtils;
+import org.springframework.util.ReflectionUtils;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -11,6 +13,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -109,6 +112,9 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                     Mono<T> result = Mono.just(BeanUtils.instantiateClass(responseType));
                     for(Map.Entry<String, BomOrValue> entry : bom.entrySet()){
                         Schema<?> childSchema = responseSchema.getChildren().get(entry.getKey());
+                        if(null == childSchema){
+                            continue;
+                        }
                         BomOrValue child = entry.getValue();
                         Mono<?> fieldPublisher = visit(models, child, childSchema);
                         result = result.zipWith(fieldPublisher, (r, v) ->{
@@ -128,6 +134,17 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 });
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.2
+     */
+    @Override
+    public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType,  BomModel bomModel) {
+        return map(bomPublisher, responseType, bomModel.getModels());
+    }
+
+    @SuppressWarnings("unchecked")
     private <T> Mono<T> visit(Map<String, Publisher<?>> models, BomOrValue bomOrValue, Schema<T> responseSchema){
         if(null == responseSchema){
             return Mono.empty();
@@ -173,11 +190,13 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private <T> T visitValue(BomOrValue bomOrValue, Object currentModel, Schema<T> current){
         ValueHandler<T> valueHandler = current.getValueHandler();
         return null != valueHandler ? valueHandler.apply(currentModel, bomOrValue.value()) : (T) currentModel;
     }
 
+    @SuppressWarnings("unchecked")
     private <T> T visitBom(BomOrValue bomOrValue, Object currentModel, Schema<?> current, boolean useActualType) throws JsonBomException {
         if(!current.isResponseCollection() || useActualType){
             return (T) writeObject(bomOrValue.bom(), currentModel, current, current.getActualType());
@@ -223,6 +242,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
     private <T> Stream<T> toStream(Object model){
         if(model instanceof Collection<?>){
             return ((Collection<T>) model).stream();
@@ -231,6 +251,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         return Arrays.stream((T[]) model);
     }
 
+    @SuppressWarnings("unchecked")
     private static final BiFunction<Object,String, ?> mapFunc = (model , p) -> {
         try {
             if(model instanceof byte[]){
@@ -311,6 +332,16 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                     });
                 }));
         return map(targetBomPublisher, targetType, targetModels);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @since 0.0.1
+     */
+    @Override
+    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, BomModel bomModel) {
+        return map(targetBomPublisher, targetType, modelType, bomModel.getModels());
     }
 
     /**

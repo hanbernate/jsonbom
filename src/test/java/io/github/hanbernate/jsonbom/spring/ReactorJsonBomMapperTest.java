@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -85,7 +86,9 @@ public class ReactorJsonBomMapperTest {
 
     @Test
     public void nest() throws IOException {
-        Map<String, Publisher<?>> models = Map.of("model", Mono.just(new Model(2, 3, "abc")), "primitive", Mono.just(1));
+        Monos monos = new Monos(Mono.just(new Model(2, 3, "abc")), Mono.just(1), null, null);
+
+        Map<String, Publisher<?>> models = Map.of("model", monos.getModel(), "primitive", monos.getPrimitive());
 
         String json = "{\"primitive\":\"\",\"child\":{\"primitive\":\"\",\"boxed\":\"\",\"type\":\"\",\"string\":\"\"}}";
         Bom bom = jsonMapper.readValue(json, Bom.class);
@@ -100,6 +103,22 @@ public class ReactorJsonBomMapperTest {
         assertEquals(Type.VALUE, result.getChild().getType());
         assertEquals("abc", result.getChild().getString());
         assertNull(result.getChild().getList());
+    }
+
+    @Test
+    public void wrongBom() throws IOException {
+        Monos monos = new Monos(Mono.just(new Model(2, 3, "abc")), Mono.just(1), null, null);
+
+        Map<String, Publisher<?>> models = Map.of("model", monos.getModel(), "primitive", monos.getPrimitive());
+
+        String json = "{\"primitive\":\"\",\"chil\":{\"primitive\":\"\",\"boxed\":\"\",\"type\":\"\",\"string\":\"\"}}";
+        Bom bom = jsonMapper.readValue(json, Bom.class);
+
+        RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
+        assertNotNull(result);
+        assertEquals(1, result.getPrimitive());
+        assertNull(result.getBoxed());
+        assertNull(result.getChild());
     }
 
     @Test
@@ -397,21 +416,29 @@ public class ReactorJsonBomMapperTest {
 
     @Test
     public void transform() throws IOException{
-
-        Flux<Model> flux = Flux.range(100, 2)
-            .map( i -> new Model(i, i + 1, String.valueOf(i)));
-
-        Map<String, Publisher<?>> models = Map.of("model", Mono.just(new Model(1, 2, "abc")),
-                "boxed", Mono.just(3),
-                "children", flux);
         String json = "{\"modelPrimitive\":\"\",\"boxed\":\"\",\"children\":{\"primitive\":\"\",\"boxed\":\"\",\"string\":\"\"},\"aliasString\":\"\"}";
         Bom targetBom = jsonMapper.readValue(json, Bom.class);
 
-        TargetType result = unwarp(bomMapper.map(Mono.just(targetBom), TargetType.class, RootType.class, models));
+        Flux<Model> flux = Flux.range(100, 2)
+            .map( i -> new Model(i, i + 1, String.valueOf(i)));
+        Monos monos = new Monos(Mono.just(new Model(1, 2, "abc")), null, Mono.just(3), flux);
+
+        TargetType result = unwarp(bomMapper.map(Mono.just(targetBom), TargetType.class, RootType.class, monos));
         assertEquals(1, result.getModelPrimitive());
         assertEquals(3, result.getBoxed());
         assertEquals(2, result.getChildren().size());
         assertEquals("abc", result.getAliasString());
+
+        Map<String, Publisher<?>> models = Map.of("model", monos.getModel(),
+                "boxed", monos.getBoxed(),
+                "children", flux);
+        result = unwarp(bomMapper.map(Mono.just(targetBom), TargetType.class, RootType.class, models));
+        assertEquals(1, result.getModelPrimitive());
+        assertEquals(3, result.getBoxed());
+        assertEquals(2, result.getChildren().size());
+        assertEquals("abc", result.getAliasString());
+
+        
 
     }
 
@@ -458,6 +485,49 @@ public class ReactorJsonBomMapperTest {
 
         public void setAliasString(String aliasString) {
             this.aliasString = aliasString;
+        }
+    }
+
+    public static class Monos implements BomModel{
+        private Mono<Model> model;
+
+        private Mono<Integer> primitive;
+
+        private Mono<Integer> boxed;
+
+        private Flux<Model> children;
+
+        public Monos(Mono<Model>model, Mono<Integer> primitive, Mono<Integer> boxed, Flux<Model> children){
+            this.model = model;
+            this.primitive = primitive;
+            this.boxed = boxed;
+            this.children = children;
+        }
+
+        public Mono<Model> getModel() {
+            return model;
+        }
+
+        public Mono<Integer> getPrimitive(){
+            return primitive;
+        }
+
+        public Mono<Integer> getBoxed() {
+            return boxed;
+        }
+
+        public Flux<Model> getChildren() {
+            return children;
+        }
+
+        @Override
+        public Map<String, Publisher<?>> getModels() {
+            Map<String, Publisher<?>> map = new HashMap<>();
+            map.put("model", model);
+            map.put("primitive", primitive);
+            map.put("boxed", boxed);
+            map.put("children", children);
+            return map;
         }
     }
 

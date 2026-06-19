@@ -2,6 +2,8 @@ package io.github.hanbernate.jsonbom.api;
 
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +12,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.introspect.POJOPropertiesCollector;
 
 
 /**
@@ -125,6 +129,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         return null != exists ? exists : result;
     }
 
+    @SuppressWarnings("unchecked")
     private <T> Schema<T> create(Schema<?> parent, Field f){
         BomMapping bomMapping = f.getAnnotation(BomMapping.class);
 
@@ -170,7 +175,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         if(Void.class != getBomMappingValue(bomMapping, BomMapping::genericType, Void.class)) {
             result.setActualType((Class<T>) bomMapping.genericType());
         }else if(result.isResponseCollection()){
-            throw new NullPointerException("genericType cannot be null for " + result.getResponseType().getName());
+            result.setActualType((Class<T>) getGenericType(parent, f));
         }
 
         // Determine if this field should be treated as a leaf (value node)
@@ -182,6 +187,33 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         // For complex nested types, recursively build child schemas
         result.setChildren(getOrCreateChildren(actualType, result));
         return result;
+    }
+
+    private Class<?> getGenericType(Schema<?> parent, Field f){
+        java.lang.reflect.Type type = ((ParameterizedType) f.getGenericType()).getActualTypeArguments()[0];
+        if(type instanceof TypeVariable){
+            java.lang.reflect.Type actual = getGenericType((TypeVariable<?>) type, parent.getActualType());
+            return (Class<?>) actual;
+        }
+        return (Class<?>) type;
+    }
+
+    private java.lang.reflect.Type getGenericType(TypeVariable<?> targTypeVariable, Class<?> cls){
+        Class<?> superClass = cls.getSuperclass();
+        if(null == superClass){
+            return targTypeVariable;
+        }
+        java.lang.reflect.Type typeVariable = getGenericType(targTypeVariable, superClass);
+        if(typeVariable instanceof Class<?>){
+            return typeVariable;
+        }
+        TypeVariable<?>[] superTypeVariables = superClass.getTypeParameters();
+        for(int i = 0; i < superTypeVariables.length; i++){
+            if(typeVariable == superTypeVariables[i]){
+                return ((ParameterizedType)cls.getGenericSuperclass()).getActualTypeArguments()[i];
+            }
+        }
+        return targTypeVariable;
     }
 
     private <T> T getBomMappingValue(BomMapping bomMapping, Function<BomMapping, T> func, T defaultValue){
@@ -201,10 +233,12 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         if(null != exists){
             return exists;
         }
-        for(Field childField : actualType.getDeclaredFields()){
-            Schema<?> child = create(parent, childField);
-            if(null != child) {
-                children.putIfAbsent(child.getName(), child);
+        for(Class<?> cur = actualType; cur != null; cur = cur.getSuperclass()){
+            for(Field childField : cur.getDeclaredFields()){
+                Schema<?> child = create(parent, childField);
+                if(null != child) {
+                    children.putIfAbsent(child.getName(), child);
+                }
             }
         }
         return children;

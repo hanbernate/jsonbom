@@ -56,6 +56,22 @@ public interface JsonBomMapper {
      * @since 0.0.1
      */
     <T> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Map<String, Publisher<?>> models);
+    /**
+     * Maps a BOM data stream into an object stream of the specified target type,
+     * accepting a {@link BomModel} as the model data source.
+     * <p>
+     * The {@code bomModel} parameter encapsulates a set of named model data publishers
+     * that are used during the mapping process to resolve model references.
+     *
+     * @param <T> the generic type of the target type
+     * @param bomPublisher the publisher of BOM data source, providing a continuous stream of BOM items
+     * @param targetType the Class object of the target type
+     * @param bomModel the model data source containing named {@link Publisher} entries
+     * @return a Publisher stream containing mapped objects, where each BOM item is converted
+     *         into an instance of the target type
+     * @since 0.0.2
+     */
+    <T> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, BomModel bomModel);
 
     /**
      * Maps a BOM data stream into an object stream of the specified target type,
@@ -73,6 +89,25 @@ public interface JsonBomMapper {
      *         into an instance of the target type
      */
     <T,U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels);
+    /**
+     * Maps a BOM data stream into an object stream of the specified target type,
+     * with explicit source model type and a {@link BomModel} as the model data source.
+     * <p>
+     * The {@code modelType} parameter explicitly declares the source model class,
+     * while {@code bomModel} encapsulates a set of named model data publishers
+     * that are used during the mapping process to resolve model references.
+     *
+     * @param <T> the generic type of the target type
+     * @param <U> the generic type of the source model type
+     * @param bomPublisher the publisher of BOM data source, providing a continuous stream of BOM items
+     * @param targetType the Class object of the target type
+     * @param modelType the Class object of the source model type, used for type-safe model references
+     * @param bomModel the model data source containing named {@link Publisher} entries
+     * @return a Publisher stream containing mapped objects, where each BOM item is converted
+     *         into an instance of the target type
+     * @since 0.0.2
+     */
+    <T,U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType,  BomModel bomModel);
     
     /**
      * Returns the BOM adapter used by this mapper.

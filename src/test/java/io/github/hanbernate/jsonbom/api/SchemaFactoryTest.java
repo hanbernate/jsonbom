@@ -125,7 +125,7 @@ public class SchemaFactoryTest {
     }
 
     @Test
-    public void genericType(){
+    public void genericType() throws Exception{
         class TestSubType{
             @BomMapping("int")
             Integer integer;
@@ -143,6 +143,60 @@ public class SchemaFactoryTest {
             }
         }
         Schema<TestType> rs = schemaFactory.getByType(TestType.class);
+        Schema<?> list = rs.getChildren().get("list");
+        assertEquals(List.class, list.getResponseType());
+        assertEquals(TestSubType.class, list.getActualType());
+
+        assertEquals(1, list.getChildren().size());
+        assertTrue(list.getChildren().containsKey("integer"));
+
+        class NoAnnotation{
+            List<TestSubType> list;
+
+            public void setList(List<TestSubType> list) {
+                this.list = list;
+            }
+
+        }
+        
+        Schema<NoAnnotation> rs2 = schemaFactory.getByType(NoAnnotation.class);
+        list = rs2.getChildren().get("list");
+        assertEquals(List.class, list.getResponseType());
+        assertEquals(TestSubType.class, list.getActualType());
+
+        assertEquals(1, list.getChildren().size());
+        assertTrue(list.getChildren().containsKey("integer"));
+    }
+
+    @Test
+    public void nestInheritanceGeneric() throws Exception{
+        class TestSubType{
+            @BomMapping("int")
+            Integer integer;
+
+            public void setInteger(Integer integer) {
+                this.integer = integer;
+            }
+        }
+
+
+        abstract class GrandParent<T>{
+            List<T> list;
+
+            public void setList(List<T> list){
+                this.list = list;
+            }
+        }
+
+        class Parent<T> extends GrandParent<T>{
+
+        }
+
+        class Child extends Parent<TestSubType>{
+
+        }
+        
+        Schema<Child> rs = schemaFactory.getByType(Child.class);
         Schema<?> list = rs.getChildren().get("list");
         assertEquals(List.class, list.getResponseType());
         assertEquals(TestSubType.class, list.getActualType());
@@ -259,5 +313,29 @@ public class SchemaFactoryTest {
     @Test
     public void valueNode(){
 
+        class ValueNode {
+
+            private Integer intValue;
+
+            public void setIntValue(Integer intValue){
+                this.intValue = intValue;
+            }
+                   
+        }
+        class Type {
+            @BomMapping(value="valueModel", valueNode = true)
+            ValueNode value;
+
+            public void setValue(ValueNode value) {
+                this.value = value;
+            }
+        }
+        Schema<Type> rs = schemaFactory.getByType(Type.class);
+        Map<String, Schema<?>> children = rs.getChildren();
+        assertEquals(1, children.size());
+        Schema<?> childSchema = children.get("value");
+        assertEquals(0, childSchema.getChildren().size());
+
     }
+    
 }
