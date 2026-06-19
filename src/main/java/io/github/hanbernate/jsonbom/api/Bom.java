@@ -55,6 +55,26 @@ public class Bom extends HashMap<String, BomOrValue>{
     }
 
     /**
+     * Retrieves the nested {@link Bom} associated with the specified key.
+     * <p>
+     * If the value mapped to the key is not a nested BOM (i.e. its type is
+     * {@link Type#VALUE}), a {@link JsonBomException} is thrown.
+     *
+     * @param key the key whose associated nested BOM is to be returned;
+     *            must not be {@code null}
+     * @return the nested {@link Bom} instance for the given key
+     * @throws JsonBomException if the key does not exist or the value is not a nested BOM
+     * @since 0.0.2
+     */
+    public Bom getBom(String key){
+        BomOrValue bomOrValue = this.get(key);
+        if(Type.BOM != bomOrValue.getType()){
+            throw new JsonBomException("Cannnot getBom with key "+ key);
+        }
+        return bomOrValue.bom();
+    }
+
+    /**
      * Creates a {@link Bom} instance from a {@link Map} of {@link BomOrValue} entries.
      * <p>
      * This factory method streams the map entries and collects them into a new {@link Bom}

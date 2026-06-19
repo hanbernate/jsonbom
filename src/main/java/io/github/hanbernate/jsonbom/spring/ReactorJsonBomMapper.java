@@ -35,8 +35,6 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
 
     private BomAdapter bomAdapter;
 
-    private Map<Class<?>, List<PropertyDescriptor>> modelsCache = new ConcurrentHashMap<>();
-
     /**
      * Constructs a new ReactorJsonBomMapper with default Spring-based dependencies.
      * <p>
@@ -114,6 +112,9 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                     Mono<T> result = Mono.just(BeanUtils.instantiateClass(responseType));
                     for(Map.Entry<String, BomOrValue> entry : bom.entrySet()){
                         Schema<?> childSchema = responseSchema.getChildren().get(entry.getKey());
+                        if(null == childSchema){
+                            continue;
+                        }
                         BomOrValue child = entry.getValue();
                         Mono<?> fieldPublisher = visit(models, child, childSchema);
                         result = result.zipWith(fieldPublisher, (r, v) ->{
@@ -139,31 +140,8 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
      * @since 0.0.2
      */
     @Override
-    public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType, Object models) {
-        return map(bomPublisher, responseType, obj2Map(models));
-    }
-
-    private Map<String, Publisher<?>> obj2Map(Object models){
-        return computePropertyDescriptors(models.getClass())
-            .stream()
-            .map(pd -> {
-                try {
-                    return new AbstractMap.SimpleImmutableEntry<String, Publisher<?>>(pd.getName(), (Publisher<?>) pd.getReadMethod().invoke(models));
-                } catch (IllegalAccessException | InvocationTargetException e) {
-                    throw new JsonBomException("Fail read property:" + pd.getName(), e);
-                }
-            }).filter(i -> null != i.getValue())
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        
-
-    }
-
-    private List<PropertyDescriptor> computePropertyDescriptors(Class<?> cls){
-        return modelsCache.computeIfAbsent(cls, c -> {
-            return Arrays.stream(BeanUtils.getPropertyDescriptors(c))
-                .filter(pd -> Publisher.class.isAssignableFrom(pd.getPropertyType()))
-                .collect(Collectors.toList());
-        });
+    public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType,  BomModel bomModel) {
+        return map(bomPublisher, responseType, bomModel.getModels());
     }
 
     @SuppressWarnings("unchecked")
@@ -362,8 +340,8 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
      * @since 0.0.1
      */
     @Override
-    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, Object sourceModels) {
-        return map(targetBomPublisher, targetType, modelType, obj2Map(sourceModels));
+    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, BomModel bomModel) {
+        return map(targetBomPublisher, targetType, modelType, bomModel.getModels());
     }
 
     /**

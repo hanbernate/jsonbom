@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -471,7 +472,7 @@ public class ReactorJsonBomMapperTest {
         }
     }
 
-    public static class Monos{
+    public static class Monos implements BomModel{
         private Mono<Model> model;
 
         private Mono<Integer> primitive;
@@ -501,6 +502,16 @@ public class ReactorJsonBomMapperTest {
 
         public Flux<Model> getChildren() {
             return children;
+        }
+
+        @Override
+        public Map<String, Publisher<?>> getModels() {
+            Map<String, Publisher<?>> map = new HashMap<>();
+            map.put("model", model);
+            map.put("primitive", primitive);
+            map.put("boxed", boxed);
+            map.put("children", children);
+            return map;
         }
     }
 

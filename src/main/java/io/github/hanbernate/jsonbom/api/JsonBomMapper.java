@@ -58,22 +58,20 @@ public interface JsonBomMapper {
     <T> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Map<String, Publisher<?>> models);
     /**
      * Maps a BOM data stream into an object stream of the specified target type,
-     * accepting models as a plain object whose Publisher fields serve as model data.
+     * accepting a {@link BomModel} as the model data source.
      * <p>
-     * The {@code models} parameter is a POJO whose fields of type {@link Publisher}
-     * are introspected and converted into a {@code Map<String, Publisher<?>>}, where each field name becomes the model
-     * name and its Publisher value becomes the model data source.
+     * The {@code bomModel} parameter encapsulates a set of named model data publishers
+     * that are used during the mapping process to resolve model references.
      *
      * @param <T> the generic type of the target type
      * @param bomPublisher the publisher of BOM data source, providing a continuous stream of BOM items
      * @param targetType the Class object of the target type
-     * @param models a POJO whose {@link Publisher} fields are used as model data sources;
-     *               each field is introspected by name and converted into the internal model map
+     * @param bomModel the model data source containing named {@link Publisher} entries
      * @return a Publisher stream containing mapped objects, where each BOM item is converted
      *         into an instance of the target type
      * @since 0.0.2
      */
-    <T> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Object models);
+    <T> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, BomModel bomModel);
 
     /**
      * Maps a BOM data stream into an object stream of the specified target type,
@@ -93,26 +91,23 @@ public interface JsonBomMapper {
     <T,U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels);
     /**
      * Maps a BOM data stream into an object stream of the specified target type,
-     * with explicit source model type and models as a POJO whose Publisher fields
-     * serve as model data.
+     * with explicit source model type and a {@link BomModel} as the model data source.
      * <p>
-     * The {@code models} parameter is a POJO whose fields of type {@link Publisher}
-     * are introspected and converted into a {@code Map<String, Publisher<?>>}.
-     * Each field name becomes the model name and its Publisher value becomes the
-     * model data source.
+     * The {@code modelType} parameter explicitly declares the source model class,
+     * while {@code bomModel} encapsulates a set of named model data publishers
+     * that are used during the mapping process to resolve model references.
      *
      * @param <T> the generic type of the target type
      * @param <U> the generic type of the source model type
      * @param bomPublisher the publisher of BOM data source, providing a continuous stream of BOM items
      * @param targetType the Class object of the target type
      * @param modelType the Class object of the source model type, used for type-safe model references
-     * @param models a POJO whose {@link Publisher} fields are used as model data sources;
-     *               each field is introspected by name and converted into the internal model map
+     * @param bomModel the model data source containing named {@link Publisher} entries
      * @return a Publisher stream containing mapped objects, where each BOM item is converted
      *         into an instance of the target type
      * @since 0.0.2
      */
-    <T,U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType,  Object sourceModels);
+    <T,U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType,  BomModel bomModel);
     
     /**
      * Returns the BOM adapter used by this mapper.
