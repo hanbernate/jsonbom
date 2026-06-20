@@ -202,7 +202,18 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
     @SuppressWarnings("unchecked")
     private <T> T visitValue(BomOrValue bomOrValue, Object currentModel, Schema<T> current){
         ValueHandler<T> valueHandler = current.getValueHandler();
-        return null != valueHandler ? valueHandler.apply(currentModel, bomOrValue.value()) : (T) currentModel;
+        if(null != valueHandler){
+            try{
+                return valueHandler.apply(currentModel, bomOrValue.value());
+            }catch(Exception e){
+                String errMsg = "Fail to execute " + valueHandler.getClass().getName()
+                    + ". bomValue:" + bomOrValue.value()
+                    + ", model:" + currentModel
+                    + ", schema:" + current.toString4Exception(schemaFactory.getSeparator());
+                throw new JsonBomException(errMsg, e );
+            }
+        }
+        return (T) currentModel;
     }
 
     @SuppressWarnings("unchecked")
