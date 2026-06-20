@@ -2,19 +2,18 @@ package io.github.hanbernate.jsonbom.spring;
 
 import io.github.hanbernate.jsonbom.api.*;
 import org.reactivestreams.Publisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
-import org.springframework.util.ReflectionUtils;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
 
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -29,6 +28,7 @@ import java.util.stream.Stream;
  * @since 0.0.1
  */
 public class ReactorJsonBomMapper implements JsonBomMapper {
+    private static Logger logger = LoggerFactory.getLogger(ReactorJsonBomMapper.class);
 
     private ValueHandlers valueHandlers;
 
@@ -123,7 +123,8 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                                 try {
                                     childSchema.getWriteMethod().invoke(r, v);
                                 } catch (IllegalAccessException | InvocationTargetException e) {
-                                    throw new JsonBomException("Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + v.toString() + ")", e);
+                                    String errMsg = "Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + v.toString() + ")";
+                                    logger.warn(errMsg, e);
                                 }
                             }
                             return r;
@@ -210,7 +211,8 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                     + ". bomValue:" + bomOrValue.value()
                     + ", model:" + currentModel
                     + ", schema:" + current.toString4Exception(schemaFactory.getSeparator());
-                throw new JsonBomException(errMsg, e );
+                logger.warn(errMsg, e);
+                return null;
             }
         }
         return (T) currentModel;
