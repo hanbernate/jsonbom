@@ -68,6 +68,9 @@ public class Bom extends HashMap<String, BomOrValue>{
      */
     public Bom getBom(String key){
         BomOrValue bomOrValue = this.get(key);
+        if(null == bomOrValue){
+            return null;
+        }
         if(Type.BOM != bomOrValue.getType()){
             throw new JsonBomException("Cannnot getBom with key "+ key);
         }
