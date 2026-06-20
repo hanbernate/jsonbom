@@ -146,6 +146,41 @@ public class ReactorJsonBomMapperTest {
     }
 
     @Test
+    public void missingModel() throws IOException {
+
+        class Model{
+            private int primitive = 1;
+
+            public int getPrimitive() {
+                return primitive;
+            }
+        }
+        Map<String, Publisher<?>> models = Map.of("model", Mono.just(new Model()));
+
+        String json = """
+            {
+                "child":{
+                    "primitive":"",
+                    "boxed":"",
+                    "type":"",
+                    "string":""
+                },
+                "boxed":""
+            }
+            """;
+        Bom bom = jsonMapper.readValue(json, Bom.class);
+
+        RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
+        assertNotNull(result);
+        assertNull(result.getBoxed());
+        assertNotNull(result.getChild());
+        assertEquals(1, result.getChild().getPrimitive());
+        assertNull(result.getChild().getBoxed());
+        assertNull(result.getChild().getType());
+        assertNull(result.getChild().getString());
+    }
+
+    @Test
     public void flux() throws IOException {
         Flux<Model> flux = Flux.range(1, 2)
                 .map( i -> new Model(i, i + 1, String.valueOf(i)));

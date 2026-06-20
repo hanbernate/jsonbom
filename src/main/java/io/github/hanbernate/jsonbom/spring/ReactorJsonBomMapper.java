@@ -7,6 +7,7 @@ import org.springframework.util.ReflectionUtils;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
 
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Array;
@@ -117,7 +118,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                         }
                         BomOrValue child = entry.getValue();
                         Mono<?> fieldPublisher = visit(models, child, childSchema);
-                        result = result.zipWith(fieldPublisher, (r, v) ->{
+                        result = nullableZip(result, fieldPublisher, (r, v) ->{
                             if(null != v){
                                 try {
                                     childSchema.getWriteMethod().invoke(r, v);
@@ -134,6 +135,11 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 });
     }
 
+    private static <T, U, R> Mono<R> nullableZip(Mono<T> monoT, Mono<U> monoU, BiFunction<T, U ,R> func){
+        Mono<Optional<T>> wrappedT = monoT.map(Optional::of).defaultIfEmpty(Optional.empty());
+        Mono<Optional<U>> wrappedU = monoU.map(Optional::of).defaultIfEmpty(Optional.empty());
+        return Mono.zip(wrappedT, wrappedU, (optT, optU) -> func.apply(optT.orElse(null), optU.orElse(null)));
+    }
     /**
      * {@inheritDoc}
      *
@@ -152,6 +158,9 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
 
         String path = 0 == responseSchema.getPath().size() ? "" : responseSchema.getPath().get(0);
         Publisher<?> model = models.get(path);
+        if(null == model){
+            return Mono.empty();
+        }
         if(model instanceof Flux<?>){
             Flux<?> fluxResult = ((Flux<?>) model).cache().map(m -> {
                 return visit(bomOrValue, m, responseSchema, 1, true);
