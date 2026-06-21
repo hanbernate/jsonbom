@@ -4,3 +4,8 @@ deepseek-tui-windows-x64.exe
 .vscode
 bin
 build
+.project
+.classpath
+.settings/
+*.iml
+.idea/

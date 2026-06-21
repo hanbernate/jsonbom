@@ -2,6 +2,8 @@ rootProject.name = 'jsonbom'
 
 include 'queryDbOnDemand'
 include 'enumMap'
+include 'calculatePrice'
 
 project(':queryDbOnDemand').projectDir = file('example/queryDbOnDemand')
 project(':enumMap').projectDir = file('example/enumMap')
+project(':calculatePrice').projectDir = file('example/calculatePrice')

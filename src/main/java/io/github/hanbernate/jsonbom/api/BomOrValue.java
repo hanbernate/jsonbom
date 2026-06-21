@@ -16,7 +16,7 @@ package io.github.hanbernate.jsonbom.api;
  * @author hanbernate
  * @since 0.0.1
  */
-public record BomOrValue(String value, Bom bom) {
+public record BomOrValue(String value, Bom bom) implements Cloneable{
 
     /**
      * Returns the type of this instance.
@@ -46,6 +46,14 @@ public record BomOrValue(String value, Bom bom) {
             throw new JsonBomException("Cannot get child bom in value node.");
         }
         return this.bom.get(key);
+    }
+
+    @Override
+    public BomOrValue clone(){
+        if(null != bom){
+            return new BomOrValue(null, bom.clone());
+        }
+        return this;
     }
 
     /**

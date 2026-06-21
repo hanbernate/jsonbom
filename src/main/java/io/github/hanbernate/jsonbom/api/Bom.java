@@ -77,6 +77,15 @@ public class Bom extends HashMap<String, BomOrValue>{
         return bomOrValue.bom();
     }
 
+    @Override
+    public Bom clone(){
+        Bom bom = new Bom();
+        for(Map.Entry<String, BomOrValue> entry : this.entrySet()){
+            bom.merge(entry.getKey(), entry.getValue().clone());
+        }
+        return bom;
+    }
+
     /**
      * Creates a {@link Bom} instance from a {@link Map} of {@link BomOrValue} entries.
      * <p>

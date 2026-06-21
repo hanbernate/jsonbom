@@ -13,8 +13,6 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.databind.introspect.POJOPropertiesCollector;
-
 
 /**
  * Default implementation of the SchemaFactory interface.

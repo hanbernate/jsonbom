@@ -13,6 +13,7 @@ import java.beans.PropertyDescriptor;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -119,9 +120,10 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                         BomOrValue child = entry.getValue();
                         Mono<?> fieldPublisher = visit(models, child, childSchema);
                         result = nullableZip(result, fieldPublisher, (r, v) ->{
-                            if(null != v){
+                            Method writeMethod = childSchema.getWriteMethod();
+                            if(null != writeMethod && null != v){
                                 try {
-                                    childSchema.getWriteMethod().invoke(r, v);
+                                    writeMethod.invoke(r, v);
                                 } catch (IllegalAccessException | InvocationTargetException e) {
                                     String errMsg = "Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + v.toString() + ")";
                                     logger.warn(errMsg, e);
@@ -251,10 +253,11 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
             BomOrValue child = entry.getValue();
             if(null != childSchema){
                 Object fieldValue = visit(child, model, childSchema, 0, false);
-                if(null != fieldValue &&( childSchema.getResponseType().isPrimitive()
+                Method writeMethod = childSchema.getWriteMethod();
+                if(null != writeMethod && null != fieldValue &&( childSchema.getResponseType().isPrimitive()
                     || fieldValue.getClass().isPrimitive() || childSchema.getResponseType().isAssignableFrom(fieldValue.getClass()))) {
                     try{
-                        childSchema.getWriteMethod().invoke(result, fieldValue);
+                        writeMethod.invoke(result, fieldValue);
                     }catch(IllegalAccessException | InvocationTargetException e){
                          throw new JsonBomException("Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + fieldValue.toString() + ")", e);
                     }
