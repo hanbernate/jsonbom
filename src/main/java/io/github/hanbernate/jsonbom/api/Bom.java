@@ -55,6 +55,37 @@ public class Bom extends HashMap<String, BomOrValue>{
     }
 
     /**
+     * Merges a key-value pair with an empty value ({@link BomOrValue#EMPTY}) into this BOM node.
+     * <p>
+     * This is a convenience method equivalent to {@code merge(key, BomOrValue.EMPTY)}.
+     *
+     * @param key the key under which the empty value should be merged
+     * @return this Bom instance for method chaining
+     * @since 0.0.3
+     */
+    public Bom mergeWithEmpty(String key){
+        return this.merge(key, BomOrValue.EMPTY);
+    }
+
+    /**
+     * Merges all entries from another {@link Bom} into this BOM node.
+     * <p>
+     * Each entry from the other BOM is merged individually using {@link #merge(String, BomOrValue)},
+     * following the recursive merge behavior for nested structures.
+     *
+     * @param otherBom the source BOM whose entries are to be merged into this instance;
+     *                 must not be {@code null}
+     * @return this Bom instance for method chaining
+     * @since 0.0.3
+     */
+    public Bom mergeOtherBom(Bom otherBom){
+        for(Map.Entry<String, BomOrValue> entry : otherBom.entrySet()){
+            this.merge(entry.getKey(), entry.getValue());
+        }
+        return this;
+    }
+
+    /**
      * Retrieves the nested {@link Bom} associated with the specified key.
      * <p>
      * If the value mapped to the key is not a nested BOM (i.e. its type is
@@ -77,6 +108,15 @@ public class Bom extends HashMap<String, BomOrValue>{
         return bomOrValue.bom();
     }
 
+    /**
+     * Creates and returns a deep copy of this {@link Bom} instance.
+     * <p>
+     * Each entry in the BOM is cloned recursively via {@link BomOrValue#clone()},
+     * producing an independent copy with no shared mutable state.
+     *
+     * @return a deep clone of this Bom instance
+     * @since 0.0.3
+     */
     @Override
     public Bom clone(){
         Bom bom = new Bom();

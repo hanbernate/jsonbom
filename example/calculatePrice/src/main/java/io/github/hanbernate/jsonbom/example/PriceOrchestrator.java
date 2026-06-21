@@ -42,11 +42,13 @@ public class PriceOrchestrator {
     private Bom upstreamBom(Bom targetBom){
         Bom r = jsonBomMapper.getBomAdapter().transformBom(targetBom, PriceModel.class);
         if(r.containsKey("finalPrice")){
+            //折扣独立查询，不再查询商品
+            r.merge("discount", BomOrValue.EMPTY);
+
             Bom goodsBom = new Bom();
+            //商品只需要查原价
             goodsBom.merge("originalPrice", BomOrValue.EMPTY);
             r.merge("goods", new BomOrValue(null , goodsBom));
-
-            r.merge("discount", BomOrValue.EMPTY);
         }
         return r;
     }

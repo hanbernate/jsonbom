@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+### ADD
+- Bom 新增 mergeWithEmpty/mergeOtherBom/clone 方法
 ### 0.0.2
 - 支持通过map或者其他集合类/字符串数组创建Bom
 - 新增 createWithEmptyValue 的 String... 变参重载

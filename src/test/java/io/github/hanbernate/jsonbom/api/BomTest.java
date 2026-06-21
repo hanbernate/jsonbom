@@ -1,7 +1,9 @@
 package io.github.hanbernate.jsonbom.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import java.util.List;
 import java.util.Map;
@@ -39,5 +41,43 @@ public class BomTest {
         assertEquals(2, bom.size());
         assertEquals(aSub, bom.getBom("a"));
         assertNull(bom.getBom("c"));
+    }
+
+    @Test
+    public void testMergeWithEmpty(){
+        Bom bom = new Bom();
+        bom.mergeWithEmpty("key1");
+        assertEquals(1, bom.size());
+        assertEquals(BomOrValue.EMPTY, bom.get("key1"));
+    }
+
+    @Test
+    public void testMergeOtherBom(){
+        Bom bom = new Bom();
+        bom.merge("a", BomOrValue.EMPTY);
+
+        Bom other = new Bom();
+        other.merge("b", BomOrValue.EMPTY);
+        other.merge("c", BomOrValue.EMPTY);
+
+        bom.mergeOtherBom(other);
+        assertEquals(3, bom.size());
+        assertNotNull(bom.get("a"));
+        assertNotNull(bom.get("b"));
+        assertNotNull(bom.get("c"));
+    }
+
+    @Test
+    public void testClone(){
+        Bom sub = new Bom();
+        sub.merge("x", BomOrValue.EMPTY);
+        Bom original = new Bom();
+        original.merge("a", new BomOrValue(null, sub));
+        original.merge("b", BomOrValue.EMPTY);
+
+        Bom cloned = original.clone();
+        assertEquals(original.size(), cloned.size());
+        assertNotNull(cloned.getBom("a"));
+        assertNotSame(original.getBom("a"), cloned.getBom("a"));
     }
 }
