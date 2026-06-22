@@ -10,6 +10,7 @@ plugins {
 allprojects {
     apply plugin: 'java'
     apply plugin: 'eclipse'
+    apply plugin: 'jacoco'
 
     group   = rootProject.group
     version = rootProject.version
@@ -26,6 +27,15 @@ allprojects {
 
     test {
         useJUnitPlatform()
+        finalizedBy jacocoTestReport
+    }
+
+    jacocoTestReport {
+        dependsOn test
+        reports {
+            xml.required = true
+            html.required = true
+        }
     }
 }
 

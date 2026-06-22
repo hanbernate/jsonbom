@@ -29,7 +29,7 @@ public class BomTest {
     
     @Test
     public void testCreateWithEmptyValue4Array(){
-        Bom bom = Bom.createWithEmptyValue(List.of("a","b","c","d"));
+        Bom bom = Bom.createWithEmptyValue("a","b","c","d");
         assertEquals(4, bom.size());
     }
     
