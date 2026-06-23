@@ -9,17 +9,22 @@ import io.github.hanbernate.jsonbom.example.repository.GoodsRepository;
 import lombok.Data;
 
 import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
+@Component
 public class PriceOrchestrator {
+    @Autowired
     GoodsRepository goodsRepository;
-
+    @Autowired
     DiscountOrchestrator discountOrchestrator;
-
+    @Autowired
     JsonBomMapper jsonBomMapper;
 
     @SuppressWarnings("unchecked")
@@ -28,15 +33,17 @@ public class PriceOrchestrator {
 
         Mono<GoodsRepository.Goods> goods = goodsRepository.findById(upstreamBom.map(b -> b.getBom("goods")), goodsId);
         Mono<BigDecimal> discount = discountOrchestrator.calculateDiscount(goodsId);
-        Mono<BigDecimal> finalPrice = goods.zipWith(discount, (g, d) -> {
-            return g.getOriginalPrice().subtract(d);
-        });
+        Mono<BigDecimal> finalPrice = goods.zipWith(discount, this::calculateFinalPrice);
 
         Map<String, Publisher<?>> models = new HashMap<>();
         models.put("goods", goods);
         models.put("discount", discount);
         models.put("finalPrice", finalPrice);
         return (Mono<PriceModel>) (Publisher<?>) jsonBomMapper.map(bom, PriceModel.class, models);
+    }
+
+    private BigDecimal calculateFinalPrice(GoodsRepository.Goods g, BigDecimal d) {
+        return g.getOriginalPrice().subtract(d).max(BigDecimal.ZERO);
     }
 
     private Bom upstreamBom(Bom targetBom){
@@ -61,11 +68,11 @@ public class PriceOrchestrator {
         private BigDecimal discount;    //折扣
         @BomMapping("finalPrice")
         BigDecimal finalPrice;      //卖价
-        @BomMapping(value="finalPrice", valueHandler = PriceTextValueHander.class)
+        @BomMapping(value="finalPrice", valueHandler = PriceTextValueHandler.class)
         String priceText;       //价格文案
     }
     
-    public static class PriceTextValueHander implements ValueHandler<String> {
+    public static class PriceTextValueHandler implements ValueHandler<String> {
 
         @Override
         public String apply(Object model, String bomValue) {
