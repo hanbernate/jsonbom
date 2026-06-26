@@ -528,7 +528,7 @@ public class ReactorJsonBomMapperTest {
         double d;
         @BomMapping("model/chars/0")
         char c;
-        @BomMapping("model/boolean/0")
+        @BomMapping("model/booleans/0")
         boolean bool;
 
         public byte getB() {
@@ -606,7 +606,8 @@ public class ReactorJsonBomMapperTest {
                     "l":"",
                     "f":"",
                     "d":"",
-                    "c":""
+                    "c":"",
+                    "bool":""
                 }
                 """;
         Bom bom = jsonMapper.readValue(json, Bom.class);

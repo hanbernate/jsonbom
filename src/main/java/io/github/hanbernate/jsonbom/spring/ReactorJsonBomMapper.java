@@ -166,8 +166,10 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         }
         if(model instanceof Flux<?>){
             Flux<?> fluxResult = ((Flux<?>) model).cache().map(m -> {
-                return visit(bomOrValue, m, responseSchema, 1, true);
-            });
+                Object r = visit(bomOrValue, m, responseSchema, 1, true);
+                return Optional.ofNullable(r);
+            }).filter(Optional::isPresent)
+            .map(Optional::get);
 
             if (responseSchema.getResponseType().isArray()) {
                 throw new JsonBomException("Flux cannot be converted to array");
@@ -184,8 +186,10 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
 
         }else{
             return ((Mono<?>) model).cache().map(m -> {
-                return visit(bomOrValue, m, responseSchema, 1, false);
-            });
+                T r = visit(bomOrValue, m, responseSchema, 1, false);
+                return Optional.ofNullable(r);
+            }).filter(Optional::isPresent)
+            .map(Optional::get);
         }
     }
 

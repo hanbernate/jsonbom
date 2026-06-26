@@ -3,7 +3,9 @@ rootProject.name = 'jsonbom'
 include 'queryDbOnDemand'
 include 'enumMap'
 include 'calculatePrice'
+include 'mcpServer'
 
 project(':queryDbOnDemand').projectDir = file('example/queryDbOnDemand')
 project(':enumMap').projectDir = file('example/enumMap')
 project(':calculatePrice').projectDir = file('example/calculatePrice')
+project(':mcpServer').projectDir = file('example/mcpServer')

@@ -24,12 +24,12 @@ Maven：
 <dependency>
     <groupId>io.github.hanbernate</groupId>
     <artifactId>jsonbom</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.4</version>
 </dependency>
 ```
 Gradle：
 ```
-implementation group: 'io.github.hanbernate', name: 'jsonbom', version: 0.0.1
+implementation group: 'io.github.hanbernate', name: 'jsonbom', version: 0.0.4
 ```
 
 ### Integrate Jackson for JSON Deserialization
