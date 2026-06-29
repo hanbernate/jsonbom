@@ -54,6 +54,13 @@ public class BomCollectorImpl<T> implements Collector<T, Bom , Bom>{
         this.valueFunction = valueFunction;
     }
 
+    /**
+     * Returns a function that merges each stream element into the accumulating {@link Bom}
+     * by extracting its key-value pair via the configured functions.
+     *
+     * @return a {@link BiConsumer} that accepts the accumulator {@link Bom} and an element
+     * @since 0.0.3
+     */
     @Override
     public BiConsumer<Bom, T> accumulator() {
         return (bom, t) ->{
@@ -61,11 +68,27 @@ public class BomCollectorImpl<T> implements Collector<T, Bom , Bom>{
         };
     }
 
+    /**
+     * Returns the set of collector characteristics.
+     * <p>
+     * This collector always returns {@link Characteristics#IDENTITY_FINISH} and
+     * {@link Characteristics#UNORDERED}.
+     *
+     * @return an immutable set of characteristics
+     * @since 0.0.3
+     */
     @Override
     public Set<Characteristics> characteristics() {
         return Set.of(Characteristics.IDENTITY_FINISH, Characteristics.UNORDERED);
     }
 
+    /**
+     * Returns a function that merges two {@link Bom} accumulators by iterating over
+     * entries of the second and merging each into the first.
+     *
+     * @return a {@link BinaryOperator} that combines two {@link Bom} instances
+     * @since 0.0.3
+     */
     @Override
     public BinaryOperator<Bom> combiner() {
         return (b1, b2) -> {
@@ -76,11 +99,24 @@ public class BomCollectorImpl<T> implements Collector<T, Bom , Bom>{
         };
     }
 
+    /**
+     * Returns the identity finisher — the accumulator {@link Bom} is used as the final result
+     * without any transformation.
+     *
+     * @return an identity {@link Function}
+     * @since 0.0.3
+     */
     @Override
     public Function<Bom, Bom> finisher() {
         return b -> b;
     }
 
+    /**
+     * Returns a supplier that creates a new empty {@link Bom} instance as the accumulation container.
+     *
+     * @return a {@link Supplier} of {@link Bom}
+     * @since 0.0.3
+     */
     @Override
     public Supplier<Bom> supplier() {
         return Bom::new;

@@ -15,6 +15,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Spring-based implementation of {@link BeanUtil}.
+ * <p>
+ * Delegates bean property introspection and instantiation to Spring's
+ * {@link BeanUtils}, and provides utility methods for converting Java objects
+ * containing reactive {@link Publisher} properties into a map of model entries.
+ *
+ * @author hanbernate
+ * @since 0.0.1
+ */
 public class SpringBeanUtil implements BeanUtil {
     /**
      * {@inheritDoc}
@@ -44,6 +54,17 @@ public class SpringBeanUtil implements BeanUtil {
         }
     }
 
+    /**
+     * Converts the given object into a map of model names to reactive publishers.
+     * <p>
+     * Only properties whose type implements {@link Publisher} are included.
+     *
+     * @param models the source object whose {@link Publisher} properties are to be extracted;
+     *               must not be {@code null}
+     * @return a map where keys are property names and values are the corresponding
+     *         {@link Publisher} instances; never {@code null}
+     * @since 0.0.3
+     */
     public Map<String, Publisher<?>> obj2Map(Object models){
         return computePropertyDescriptors(models.getClass())
             .stream()
