@@ -2,8 +2,9 @@ package io.github.hanbernate.jsonbom.spring;
 
 import io.github.hanbernate.jsonbom.api.*;
 import org.reactivestreams.Publisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
-import org.springframework.util.ReflectionUtils;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -12,8 +13,8 @@ import java.beans.PropertyDescriptor;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ import java.util.stream.Stream;
  * @since 0.0.1
  */
 public class ReactorJsonBomMapper implements JsonBomMapper {
+    private static Logger logger = LoggerFactory.getLogger(ReactorJsonBomMapper.class);
 
     private ValueHandlers valueHandlers;
 
@@ -117,12 +119,14 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                         }
                         BomOrValue child = entry.getValue();
                         Mono<?> fieldPublisher = visit(models, child, childSchema);
-                        result = result.zipWith(fieldPublisher, (r, v) ->{
-                            if(null != v){
+                        result = nullableZip(result, fieldPublisher, (r, v) ->{
+                            Method writeMethod = childSchema.getWriteMethod();
+                            if(null != writeMethod && null != v){
                                 try {
-                                    childSchema.getWriteMethod().invoke(r, v);
+                                    writeMethod.invoke(r, v);
                                 } catch (IllegalAccessException | InvocationTargetException e) {
-                                    throw new JsonBomException("Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + v.toString() + ")", e);
+                                    String errMsg = "Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + v.toString() + ")";
+                                    logger.warn(errMsg, e);
                                 }
                             }
                             return r;
@@ -134,6 +138,11 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 });
     }
 
+    private static <T, U, R> Mono<R> nullableZip(Mono<T> monoT, Mono<U> monoU, BiFunction<T, U ,R> func){
+        Mono<Optional<T>> wrappedT = monoT.map(Optional::of).defaultIfEmpty(Optional.empty());
+        Mono<Optional<U>> wrappedU = monoU.map(Optional::of).defaultIfEmpty(Optional.empty());
+        return Mono.zip(wrappedT, wrappedU, (optT, optU) -> func.apply(optT.orElse(null), optU.orElse(null)));
+    }
     /**
      * {@inheritDoc}
      *
@@ -152,10 +161,15 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
 
         String path = 0 == responseSchema.getPath().size() ? "" : responseSchema.getPath().get(0);
         Publisher<?> model = models.get(path);
+        if(null == model){
+            return Mono.empty();
+        }
         if(model instanceof Flux<?>){
             Flux<?> fluxResult = ((Flux<?>) model).cache().map(m -> {
-                return visit(bomOrValue, m, responseSchema, 1, true);
-            });
+                Object r = visit(bomOrValue, m, responseSchema, 1, true);
+                return Optional.ofNullable(r);
+            }).filter(Optional::isPresent)
+            .map(Optional::get);
 
             if (responseSchema.getResponseType().isArray()) {
                 throw new JsonBomException("Flux cannot be converted to array");
@@ -172,8 +186,10 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
 
         }else{
             return ((Mono<?>) model).cache().map(m -> {
-                return visit(bomOrValue, m, responseSchema, 1, false);
-            });
+                T r = visit(bomOrValue, m, responseSchema, 1, false);
+                return Optional.ofNullable(r);
+            }).filter(Optional::isPresent)
+            .map(Optional::get);
         }
     }
 
@@ -193,7 +209,19 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
     @SuppressWarnings("unchecked")
     private <T> T visitValue(BomOrValue bomOrValue, Object currentModel, Schema<T> current){
         ValueHandler<T> valueHandler = current.getValueHandler();
-        return null != valueHandler ? valueHandler.apply(currentModel, bomOrValue.value()) : (T) currentModel;
+        if(null != valueHandler){
+            try{
+                return valueHandler.apply(currentModel, bomOrValue.value());
+            }catch(Exception e){
+                String errMsg = "Fail to execute " + valueHandler.getClass().getName()
+                    + ". bomValue:" + bomOrValue.value()
+                    + ", model:" + currentModel
+                    + ", schema:" + current.toString4Exception(schemaFactory.getSeparator());
+                logger.warn(errMsg, e);
+                return null;
+            }
+        }
+        return (T) currentModel;
     }
 
     @SuppressWarnings("unchecked")
@@ -229,10 +257,11 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
             BomOrValue child = entry.getValue();
             if(null != childSchema){
                 Object fieldValue = visit(child, model, childSchema, 0, false);
-                if(null != fieldValue &&( childSchema.getResponseType().isPrimitive()
+                Method writeMethod = childSchema.getWriteMethod();
+                if(null != writeMethod && null != fieldValue &&( childSchema.getResponseType().isPrimitive()
                     || fieldValue.getClass().isPrimitive() || childSchema.getResponseType().isAssignableFrom(fieldValue.getClass()))) {
                     try{
-                        childSchema.getWriteMethod().invoke(result, fieldValue);
+                        writeMethod.invoke(result, fieldValue);
                     }catch(IllegalAccessException | InvocationTargetException e){
                          throw new JsonBomException("Fail to write field for schema(" + childSchema.toString4Exception(schemaFactory.getSeparator()) + ") and value(" + fieldValue.toString() + ")", e);
                     }

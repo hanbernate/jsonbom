@@ -13,8 +13,6 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.databind.introspect.POJOPropertiesCollector;
-
 
 /**
  * Default implementation of the SchemaFactory interface.
@@ -190,6 +188,10 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
     }
 
     private Class<?> getGenericType(Schema<?> parent, Field f){
+        java.lang.reflect.Type genericType = f.getGenericType();
+        if(genericType.getClass().isAssignableFrom(Class.class)){
+            return (Class<?>) genericType;
+        }
         java.lang.reflect.Type type = ((ParameterizedType) f.getGenericType()).getActualTypeArguments()[0];
         if(type instanceof TypeVariable){
             java.lang.reflect.Type actual = getGenericType((TypeVariable<?>) type, parent.getActualType());

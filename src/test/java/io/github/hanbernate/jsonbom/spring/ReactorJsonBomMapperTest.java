@@ -7,6 +7,7 @@ import io.github.hanbernate.jsonbom.api.model.RootType;
 import io.github.hanbernate.jsonbom.api.valuehadnler.RegisteredTypeValueHandler;
 import io.github.hanbernate.jsonbom.jackson.JacksonDeserializer;
 import io.github.hanbernate.jsonbom.jackson.JacksonNameParser;
+
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -22,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -86,14 +88,26 @@ public class ReactorJsonBomMapperTest {
 
     @Test
     public void nest() throws IOException {
-        Monos monos = new Monos(Mono.just(new Model(2, 3, "abc")), Mono.just(1), null, null);
-
-        Map<String, Publisher<?>> models = Map.of("model", monos.getModel(), "primitive", monos.getPrimitive());
-
         String json = "{\"primitive\":\"\",\"child\":{\"primitive\":\"\",\"boxed\":\"\",\"type\":\"\",\"string\":\"\"}}";
         Bom bom = jsonMapper.readValue(json, Bom.class);
 
-        RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
+        Monos monos = new Monos(Mono.just(new Model(2, 3, "abc")), Mono.just(1), null, null);
+        
+        RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, monos));
+        assertNotNull(result);
+        assertEquals(1, result.getPrimitive());
+        assertNull(result.getBoxed());
+        assertNotNull(result.getChild());
+        assertEquals(2, result.getChild().getPrimitive());
+        assertEquals(3, result.getChild().getBoxed());
+        assertEquals(Type.VALUE, result.getChild().getType());
+        assertEquals("abc", result.getChild().getString());
+        assertNull(result.getChild().getList());
+
+        Map<String, Publisher<?>> models = Map.of("model", monos.getModel(), "primitive", monos.getPrimitive());
+
+        
+        result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
         assertNotNull(result);
         assertEquals(1, result.getPrimitive());
         assertNull(result.getBoxed());
@@ -111,14 +125,23 @@ public class ReactorJsonBomMapperTest {
 
         Map<String, Publisher<?>> models = Map.of("model", monos.getModel(), "primitive", monos.getPrimitive());
 
-        String json = "{\"primitive\":\"\",\"chil\":{\"primitive\":\"\",\"boxed\":\"\",\"type\":\"\",\"string\":\"\"}}";
+        String json = """
+            {
+                "primitive":"",
+                "box":"",
+                "child":{
+                    "box":""
+                }
+            }
+                """;
         Bom bom = jsonMapper.readValue(json, Bom.class);
 
         RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
         assertNotNull(result);
         assertEquals(1, result.getPrimitive());
         assertNull(result.getBoxed());
-        assertNull(result.getChild());
+        assertNotNull(result.getChild());
+        assertNull(result.getChild().getBoxed());
     }
 
     @Test
@@ -146,12 +169,60 @@ public class ReactorJsonBomMapperTest {
     }
 
     @Test
+    public void missingModel() throws IOException {
+
+        class Model{
+            private int primitive = 1;
+
+            public int getPrimitive() {
+                return primitive;
+            }
+        }
+        Map<String, Publisher<?>> models = Map.of("model", Mono.just(new Model()));
+
+        String json = """
+            {
+                "child":{
+                    "primitive":"",
+                    "boxed":"",
+                    "type":"",
+                    "string":""
+                },
+                "boxed":""
+            }
+            """;
+        Bom bom = jsonMapper.readValue(json, Bom.class);
+
+        RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
+        assertNotNull(result);
+        assertNull(result.getBoxed());
+        assertNotNull(result.getChild());
+        assertEquals(1, result.getChild().getPrimitive());
+        assertNull(result.getChild().getBoxed());
+        assertNull(result.getChild().getType());
+        assertNull(result.getChild().getString());
+    }
+
+    @Test
     public void flux() throws IOException {
         Flux<Model> flux = Flux.range(1, 2)
                 .map( i -> new Model(i, i + 1, String.valueOf(i)));
         Map<String, Publisher<?>> models = Map.of("children", flux);
 
-        String json = "{\"children\":{\"primitive\":\"\",\"boxed\":\"\",\"string\":\"\"}}";
+        String json = """
+            {
+                "children":{
+                    "primitive":"",
+                    "boxed":"",
+                    "string":""
+                },
+                "childrenSet":{
+                    "primitive":"",
+                    "boxed":"",
+                    "string":""
+                }
+            }
+                """;
         Bom bom = jsonMapper.readValue(json, Bom.class);
 
         RootType result = unwarp(bomMapper.map(Mono.just(bom), RootType.class, models));
@@ -169,6 +240,9 @@ public class ReactorJsonBomMapperTest {
         assertEquals(3, child1.getBoxed());
         assertNull(child1.getType());
         assertEquals("2", child1.getString());
+
+        Set<ChildType> childrenSet = result.getChildrenSet();
+        assertEquals(2, childrenSet.size());
     }
 
     @Test
@@ -437,9 +511,200 @@ public class ReactorJsonBomMapperTest {
         assertEquals(3, result.getBoxed());
         assertEquals(2, result.getChildren().size());
         assertEquals("abc", result.getAliasString());
+    }
 
-        
+    public static class FirstPrimitives{
+        @BomMapping("model/bytes/0")
+        byte b;
+        @BomMapping("model/shorts/0")
+        short s;
+        @BomMapping("model/ints/0")
+        int i;
+        @BomMapping("model/longs/0")
+        long l;
+        @BomMapping("model/floats/0")
+        float f;
+        @BomMapping("model/doubles/0")
+        double d;
+        @BomMapping("model/chars/0")
+        char c;
+        @BomMapping("model/booleans/0")
+        boolean bool;
 
+        public byte getB() {
+            return b;
+        }
+
+        public void setB(byte b) {
+            this.b = b;
+        }
+
+        public short getS() {
+            return s;
+        }
+
+        public void setS(short s) {
+            this.s = s;
+        }
+
+        public int getI() {
+            return i;
+        }
+
+        public void setI(int i) {
+            this.i = i;
+        }
+
+        public long getL() {
+            return l;
+        }
+
+        public void setL(long l) {
+            this.l = l;
+        }
+
+        public float getF() {
+            return f;
+        }
+
+        public void setF(float f) {
+            this.f = f;
+        }
+
+        public double getD() {
+            return d;
+        }
+
+        public void setD(double d) {
+            this.d = d;
+        }
+
+        public char getC() {
+            return c;
+        }
+
+        public void setC(char c) {
+            this.c = c;
+        }
+
+        public boolean getBool() {
+            return bool;
+        }
+
+        public void setBool(boolean bool) {
+            this.bool = bool;
+        }
+    }
+
+    @Test
+    public void oneInPrimitiveArray() throws IOException{
+        String json = """
+                {
+                    "b":"",
+                    "s":"",
+                    "i":"",
+                    "l":"",
+                    "f":"",
+                    "d":"",
+                    "c":"",
+                    "bool":""
+                }
+                """;
+        Bom bom = jsonMapper.readValue(json, Bom.class);
+
+        class PrimitiveArray{
+            byte[] bytes;
+            short[] shorts;
+            int[] ints;
+            long[] longs;
+            float[] floats;
+            double[] doubles;
+            char[] chars;
+            boolean[] booleans;
+
+            public byte[] getBytes() {
+                return bytes;
+            }
+
+            public void setBytes(byte[] bytes) {
+                this.bytes = bytes;
+            }
+
+            public short[] getShorts() {
+                return shorts;
+            }
+
+            public void setShorts(short[] shorts) {
+                this.shorts = shorts;
+            }
+
+            public int[] getInts() {
+                return ints;
+            }
+
+            public void setInts(int[] ints) {
+                this.ints = ints;
+            }
+
+            public long[] getLongs() {
+                return longs;
+            }
+
+            public void setLongs(long[] longs) {
+                this.longs = longs;
+            }
+
+            public float[] getFloats() {
+                return floats;
+            }
+
+            public void setFloats(float[] floats) {
+                this.floats = floats;
+            }
+
+            public double[] getDoubles() {
+                return doubles;
+            }
+
+            public void setDoubles(double[] doubles) {
+                this.doubles = doubles;
+            }
+
+            public char[] getChars() {
+                return chars;
+            }
+
+            public void setChars(char[] chars) {
+                this.chars = chars;
+            }
+
+            public boolean[] getBooleans() {
+                return booleans;
+            }
+
+            public void setBooleans(boolean[] booleans) {
+                this.booleans = booleans;
+            }
+        }
+        PrimitiveArray model = new PrimitiveArray();
+        model.setBytes("hanbernate".getBytes());
+        model.setShorts(new short[]{1});
+        model.setInts(new int[]{2});
+        model.setLongs(new long[]{3L});
+        model.setFloats(new float[]{3.3f});
+        model.setDoubles(new double[]{3.6d});
+        model.setChars(new char[]{'a'});
+        model.setBooleans(new boolean[]{true});
+        Map<String, Publisher<?>> models = Map.of("model", Mono.just(model));
+        FirstPrimitives result = unwarp(bomMapper.map(Mono.just(bom), FirstPrimitives.class, models));
+        assertEquals(model.getBytes()[0], result.getB());
+        assertEquals(model.getShorts()[0], result.getS());
+        assertEquals(model.getInts()[0], result.getI());
+        assertEquals(model.getLongs()[0], result.getL());
+        assertEquals(model.getFloats()[0], result.getF());
+        assertEquals(model.getDoubles()[0], result.getD());
+        assertEquals(model.getChars()[0], result.getC());
+        assertTrue(result.getBool());
     }
 
     public static class TargetType{

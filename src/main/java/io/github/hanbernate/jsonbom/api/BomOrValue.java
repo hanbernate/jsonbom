@@ -16,7 +16,7 @@ package io.github.hanbernate.jsonbom.api;
  * @author hanbernate
  * @since 0.0.1
  */
-public record BomOrValue(String value, Bom bom) {
+public record BomOrValue(String value, Bom bom) implements Cloneable{
 
     /**
      * Returns the type of this instance.
@@ -46,6 +46,24 @@ public record BomOrValue(String value, Bom bom) {
             throw new JsonBomException("Cannot get child bom in value node.");
         }
         return this.bom.get(key);
+    }
+
+    /**
+     * Creates and returns a copy of this {@link BomOrValue}.
+     * <p>
+     * If this instance contains a nested BOM, the nested BOM is deep-cloned
+     * via {@link Bom#clone()}. If this instance is a leaf value or {@link #EMPTY},
+     * the instance itself is returned (immutable).
+     *
+     * @return a cloned BomOrValue instance
+     * @since 0.0.3
+     */
+    @Override
+    public BomOrValue clone(){
+        if(null != bom){
+            return new BomOrValue(null, bom.clone());
+        }
+        return this;
     }
 
     /**

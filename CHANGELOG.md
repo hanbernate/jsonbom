@@ -4,8 +4,10 @@
 
 ## [Unreleased]
 
+### 0.0.3
+- Bom 新增 mergeWithEmpty/mergeOtherBom/clone 方法
 ### 0.0.2
 - 支持通过map或者其他集合类/字符串数组创建Bom
 - 新增 createWithEmptyValue 的 String... 变参重载
 - 集合字段缺少 @BomMapping genericType 时自动推断泛型参数
-- map 方法支持实现作为 models 参数
+- map 方法支持BomModel实现作为 models 参数

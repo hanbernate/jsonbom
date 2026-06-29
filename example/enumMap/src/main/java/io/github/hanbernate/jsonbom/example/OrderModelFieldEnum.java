@@ -1,7 +1,6 @@
 package io.github.hanbernate.jsonbom.example;
 
 import io.github.hanbernate.jsonbom.api.BomModelField;
-import io.github.hanbernate.jsonbom.api.Bom;
 
 public enum OrderModelFieldEnum implements BomModelField{
     ORDER("order", OrderRepository.Order.class),

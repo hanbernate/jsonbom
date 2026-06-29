@@ -4,10 +4,47 @@
 
 plugins {
     id 'java'
+    id 'eclipse'
 }
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'eclipse'
+    apply plugin: 'jacoco'
+
+    group   = rootProject.group
+    version = rootProject.version
+
+    java {
+        sourceCompatibility = 17
+        targetCompatibility = 17
+    }
+
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        mavenCentral()
+    }
+
+    test {
+        useJUnitPlatform()
+        finalizedBy jacocoTestReport
+    }
+
+    jacocoTestReport {
+        dependsOn test
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+}
+
 ext {
     spring = [
-            version : "6.2.18"
+            version : "6.2.19"
+    ];
+    springAi = [
+            version : "1.1.8"
     ];
     slf4j = [
             version : "2.0.9"
@@ -18,7 +55,7 @@ ext {
 }
 
 group   = 'io.github.hanbernate'
-version = '0.0.2'
+version = '0.0.3'
 description = 'API Query Language with Json'
 
 java {

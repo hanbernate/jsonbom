@@ -6,6 +6,7 @@ import io.github.hanbernate.jsonbom.api.valuehadnler.DateTimeFormatValueHandler;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Set;
 
 public class RootType {
     @BomMapping("model")
@@ -25,6 +26,9 @@ public class RootType {
 
     @BomMapping(value = "children", genericType = ChildType.class)
     List<ChildType> children;
+
+    @BomMapping(value = "children", genericType = ChildType.class)
+    Set<ChildType> childrenSet;
 
     @BomMapping(value = "datetime", valueHandler = DateTimeFormatValueHandler.class)
     private String datetime;
@@ -82,6 +86,14 @@ public class RootType {
 
     public void setChildren(List<ChildType> children) {
         this.children = children;
+    }
+
+    public Set<ChildType> getChildrenSet() {
+        return childrenSet;
+    }
+
+    public void setChildrenSet(Set<ChildType> childrenSet) {
+        this.childrenSet = childrenSet;
     }
 
     public void setDatetime(String datetime){
