@@ -5,6 +5,7 @@ import io.github.hanbernate.jsonbom.api.BomMapping;
 import io.github.hanbernate.jsonbom.api.BomOrValue;
 import io.github.hanbernate.jsonbom.api.JsonBomMapper;
 import io.github.hanbernate.jsonbom.api.ValueHandler;
+import io.github.hanbernate.jsonbom.core.PublisherLog;
 import io.github.hanbernate.jsonbom.example.repository.GoodsRepository;
 import lombok.Data;
 
@@ -28,6 +29,7 @@ public class PriceOrchestrator {
     JsonBomMapper jsonBomMapper;
 
     @SuppressWarnings("unchecked")
+    @PublisherLog
     public Mono<PriceModel> getPriceModel(Mono<Bom> bom, Mono<Long> goodsId){
         Mono<Bom> upstreamBom = bom.map(this::upstreamBom).cache();
 

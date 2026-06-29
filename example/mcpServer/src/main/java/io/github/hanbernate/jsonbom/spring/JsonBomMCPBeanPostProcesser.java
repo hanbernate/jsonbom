@@ -32,6 +32,9 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.ReflectionUtils;
 
+import com.fasterxml.classmate.ResolvedType;
+import com.fasterxml.classmate.ResolvedTypeWithMembers;
+import com.fasterxml.classmate.members.ResolvedField;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -97,39 +100,32 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
             ObjectNode objectNode = objectMapper.createObjectNode();
             objectNode.put("type", "object");
             ObjectNode properties = objectNode.putObject("properties");
-            for(Field field : responseType.getDeclaredFields()){
+            ResolvedType resolvedType = context.getTypeContext().resolve(responseType);
+            ResolvedTypeWithMembers typeWithMembers = context.getTypeContext().resolveWithMembers(resolvedType);
+            for(ResolvedField field : typeWithMembers.getMemberFields()){
                 String name = field.getName();
-                properties.set(name, createByField(field, objectMapper));
+                properties.set(name, createByField(context.getTypeContext().createFieldScope(field, typeWithMembers), context));
             }
             objectNode.put("description", context.getGeneratorConfig().resolveDescription(fieldScope));
             return new CustomPropertyDefinition(objectNode);
         }
 
-        private ObjectNode createByField(Field field, ObjectMapper objectMapper){
+        private ObjectNode createByField(FieldScope fieldScope, SchemaGenerationContext context){
+            var objectMapper = context.getGeneratorConfig().getObjectMapper();
             ObjectNode r = objectMapper.createObjectNode();
-            Type type = field.getGenericType();
+            Type type = fieldScope.getRawMember().getGenericType();
             if(isNested(type)){
-                ObjectNode properties = createNestedType(type, objectMapper);
+                ObjectNode properties = createNestedType(type, context);
                 r.put("type", "object");
                 r.set("properties", properties);
             }else{
                 r.put("type", "string");
             }
-            String description = getDescrioption(field);
+            String description = context.getGeneratorConfig().resolveDescription(fieldScope);
             if(null != description){
                 r.put("description", description);
             }
             return r;
-        }
-
-        private String getName(Field f){
-            JsonProperty jsonProperty = f.getAnnotation(JsonProperty.class);
-            return null != jsonProperty ? jsonProperty.value() : f.getName();
-        }
-
-        private String getDescrioption(Field field){
-            JsonPropertyDescription jsonPropertyDescription = field.getAnnotation(JsonPropertyDescription.class);
-            return null != jsonPropertyDescription ? jsonPropertyDescription.value() : null;
         }
 
         private boolean isNested(Type type){
@@ -144,12 +140,15 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
             return true;
         }
 
-        private ObjectNode createNestedType(Type type, ObjectMapper objectMapper){
-            ObjectNode objectNode = objectMapper.createObjectNode();
-            for(Field f : ((Class<?>) type).getDeclaredFields()){
-                objectNode.set(getName(f), createByField(f, objectMapper));
+        private ObjectNode createNestedType(Type type, SchemaGenerationContext context){
+            ObjectNode properties = context.getGeneratorConfig().createObjectNode();
+            ResolvedType resolvedType = context.getTypeContext().resolve(type);
+            ResolvedTypeWithMembers typeWithMembers = context.getTypeContext().resolveWithMembers(resolvedType);
+            for(ResolvedField field : typeWithMembers.getMemberFields()){
+                String name = field.getName();
+                properties.set(name, createByField(context.getTypeContext().createFieldScope(field, typeWithMembers), context));
             }
-            return objectNode;
+            return properties;
         }
 
     }
