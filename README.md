@@ -24,12 +24,12 @@ Maven：
 <dependency>
     <groupId>io.github.hanbernate</groupId>
     <artifactId>jsonbom</artifactId>
-    <version>0.0.4</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 Gradle：
 ```
-implementation group: 'io.github.hanbernate', name: 'jsonbom', version: 0.0.4
+implementation group: 'io.github.hanbernate', name: 'jsonbom', version: 0.1.0
 ```
 
 ### 集成Jackson反序列化JSON

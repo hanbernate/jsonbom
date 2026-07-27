@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+### 0.1.0
+- 新增Jackson3支持
 ### 0.0.3
 - Bom 新增 mergeWithEmpty/mergeOtherBom/clone 方法
 ### 0.0.2

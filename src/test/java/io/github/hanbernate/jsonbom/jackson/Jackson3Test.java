@@ -5,10 +5,9 @@ import io.github.hanbernate.jsonbom.api.Bom;
 import io.github.hanbernate.jsonbom.api.BomOrValue;
 import io.github.hanbernate.jsonbom.api.Type;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import org.junit.jupiter.api.BeforeAll;
+
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -16,23 +15,21 @@ import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("jackson support test")
-public class JacksonTest {
+@DisplayName("jackson3 support test")
+public class Jackson3Test {
+    JsonMapper jsonMapper;
+    public Jackson3Test(){
+        this.jsonMapper = JsonMapper.builder()
+            .addModule(new SimpleModule()
+                    .addDeserializer(Bom.class, new Jackson3Deserializer()))
 
-    static ObjectMapper objectMapper = new ObjectMapper();
-
-    @BeforeAll
-    public static void init(){
-        JsonDeserializer<Bom> deserializer = new JacksonDeserializer();
-        SimpleModule module = new SimpleModule();
-        module.addDeserializer(Bom.class, deserializer);
-        objectMapper.registerModule(module);
+            .build();
     }
 
     @Test
     public void testDeserialize() throws IOException {
         String str = "{\"author\":\"lmh\", \"artifact\":{\"name\":\"jsonbom\", \"version\":null}}";
-        Bom bom = objectMapper.readValue(str, Bom.class);
+        Bom bom = jsonMapper.readValue(str, Bom.class);
         BomOrValue author= bom.get("author");
         assertEquals(Type.VALUE, author.getType());
         assertEquals("lmh", author.value());
@@ -47,11 +44,9 @@ public class JacksonTest {
     @Test
     public void testDeserializeEmptyString() throws IOException {
         String str = "{\"name\":\"\", \"title\":\"hello\"}";
-        Bom bom = objectMapper.readValue(str, Bom.class);
+        Bom bom = jsonMapper.readValue(str, Bom.class);
         assertEquals(2, bom.size());
-        // Empty string should produce EMPTY
         assertEquals(BomOrValue.EMPTY, bom.get("name"));
-        // Non-empty string should produce VALUE type
         BomOrValue title = bom.get("title");
         assertEquals(Type.VALUE, title.getType());
         assertEquals("hello", title.value());
@@ -60,18 +55,17 @@ public class JacksonTest {
     @Test
     public void testDeserializeEmptyNestedObject() throws IOException {
         String str = "{\"outer\":{\"inner\":{}}}";
-        Bom bom = objectMapper.readValue(str, Bom.class);
+        Bom bom = jsonMapper.readValue(str, Bom.class);
         BomOrValue outer = bom.get("outer");
         assertEquals(Type.BOM, outer.getType());
         BomOrValue inner = outer.bom().get("inner");
         assertEquals(Type.BOM, inner.getType());
-        // Empty nested object should have no entries
         assertEquals(0, inner.bom().size());
     }
 
     @Test
     public void testDeserializeEmptyObject() throws IOException {
-        Bom bom = objectMapper.readValue("{}", Bom.class);
+        Bom bom = jsonMapper.readValue("{}", Bom.class);
         assertEquals(0, bom.size());
     }
 
