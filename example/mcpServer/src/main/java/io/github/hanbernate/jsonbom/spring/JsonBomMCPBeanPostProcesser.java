@@ -7,13 +7,19 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.reactivestreams.Publisher;
+import org.springaicommunity.mcp.method.tool.AsyncMcpToolMethodCallback;
+import org.springaicommunity.mcp.method.tool.AsyncStatelessMcpToolMethodCallback;
+import org.springaicommunity.mcp.method.tool.ReturnMode;
 import org.springframework.ai.mcp.McpToolUtils;
+import org.springframework.ai.model.ModelOptionsUtils;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -31,6 +37,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.web.method.HandlerMethod;
 
 import com.fasterxml.classmate.ResolvedType;
 import com.fasterxml.classmate.ResolvedTypeWithMembers;
@@ -56,16 +63,22 @@ import com.github.victools.jsonschema.generator.Option;
 
 import io.github.hanbernate.jsonbom.core.BomType;
 import io.modelcontextprotocol.server.McpAsyncServer;
+import io.modelcontextprotocol.server.McpAsyncServerExchange;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpStatelessAsyncServer;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures;
 import io.modelcontextprotocol.server.McpStatelessSyncServer;
 import io.modelcontextprotocol.server.McpSyncServer;
+import io.modelcontextprotocol.server.McpSyncServerExchange;
+import io.modelcontextprotocol.spec.McpSchema;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
     McpServerWrapper mcpServer;
 
-    List<ToolCallback> callbacks = new CopyOnWriteArrayList <>();
+    List<HandlerMethod> handlerMethods = new CopyOnWriteArrayList <>();
 
     SchemaGenerator generator;
 
@@ -158,20 +171,20 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
 
         if(mcpServer != null){
             this.mcpServer = mcpServer;
-            this.mcpServer.addToolCallbacks(callbacks);
+            this.mcpServer.addHandlerMethods(handlerMethods);
         }
 
-        List<ToolCallback> callbacks = Stream
+        List<HandlerMethod> handlerMethods = Stream
             .of(ReflectionUtils.getDeclaredMethods(
                     AopUtils.isAopProxy(bean) ? AopUtils.getTargetClass(bean) : bean.getClass()))
             .filter(this::isToolAnnotatedMethod)
             .filter(toolMethod -> !isFunctionalType(toolMethod))
             .filter(ReflectionUtils.USER_DECLARED_METHODS::matches)
-            .map(toolMethod -> buiToolCallback(toolMethod, bean))
+            .map(toolMethod -> new HandlerMethod(bean, toolMethod))
             .collect(Collectors.toList());
-        this.callbacks.addAll(callbacks);
+        this.handlerMethods.addAll(handlerMethods);
         if(this.mcpServer != null){
-            this.mcpServer.addToolCallbacks(callbacks);
+            this.mcpServer.addHandlerMethods(handlerMethods);
         }
 		return bean;
 	}
@@ -189,13 +202,13 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
 		return isFunction;
 	}
 
-    private ToolCallback buiToolCallback(Method toolMethod, Object toolObject){
+    private ToolCallback buildSyncToolCallback(HandlerMethod handlerMethod){
         return MethodToolCallback.builder()
-					.toolDefinition(buildToolDefinition(toolMethod))
-					.toolMetadata(ToolMetadata.from(toolMethod))
-					.toolMethod(toolMethod)
-					.toolObject(toolObject)
-					.toolCallResultConverter(ToolUtils.getToolCallResultConverter(toolMethod))
+					.toolDefinition(buildToolDefinition(handlerMethod.getMethod()))
+					.toolMetadata(ToolMetadata.from(handlerMethod.getMethod()))
+					.toolMethod(handlerMethod.getMethod())
+					.toolObject(handlerMethod.getBean())
+					.toolCallResultConverter(ToolUtils.getToolCallResultConverter(handlerMethod.getMethod()))
 					.build();
     }
 
@@ -249,7 +262,7 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
     }
 
     private interface McpServerWrapper{
-        void addToolCallbacks(List<ToolCallback> callbacks);
+        void addHandlerMethods(List<HandlerMethod> handlerMethods);
     }
 
     private class McpSyncServerWrapper implements McpServerWrapper{
@@ -259,9 +272,9 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
         }
 
         @Override
-        public void addToolCallbacks(List<ToolCallback> callbacks) {
-            for(ToolCallback callback : callbacks){
-                McpServerFeatures.SyncToolSpecification specification = McpToolUtils.toSyncToolSpecification(callback);
+        public void addHandlerMethods(List<HandlerMethod> handlerMethods) {
+            for(HandlerMethod hm : handlerMethods){
+                McpServerFeatures.SyncToolSpecification specification = McpToolUtils.toSyncToolSpecification(buildSyncToolCallback(hm));
                 this.server.addTool(specification);
             }
         }
@@ -274,10 +287,21 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
         }
 
         @Override
-        public void addToolCallbacks(List<ToolCallback> callbacks) {
-            for(ToolCallback callback : callbacks){
-                McpServerFeatures.AsyncToolSpecification specification = McpToolUtils.toAsyncToolSpecification(callback);
-                this.server.addTool(specification);
+        public void addHandlerMethods(List<HandlerMethod> handlerMethods) {
+            for(HandlerMethod hm : handlerMethods){
+                ToolDefinition definition = buildToolDefinition(hm.getMethod());
+                McpSchema.Tool tool = McpSchema.Tool.builder()
+                    .name(definition.name())
+                    .description(definition.description())
+                    .inputSchema(ModelOptionsUtils.jsonToObject(definition.inputSchema(),
+                            McpSchema.JsonSchema.class))
+                    .build();
+                AsyncMcpToolMethodCallback callHandler = new AsyncMcpToolMethodCallback(parseReturnMode(hm), hm.getMethod(), hm.getBean());
+                McpServerFeatures.AsyncToolSpecification specification = McpServerFeatures.AsyncToolSpecification.builder()
+                    .tool(tool)
+                    .callHandler(callHandler)
+                    .build();
+                this.server.addTool(specification).block(); //初始化的时候影响不大
             }
         }
     }
@@ -289,12 +313,25 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
         }
 
         @Override
-        public void addToolCallbacks(List<ToolCallback> callbacks) {
-            for(ToolCallback callback : callbacks){
-                McpStatelessServerFeatures.SyncToolSpecification specification = McpToolUtils.toStatelessSyncToolSpecification(callback, MimeTypeUtils.APPLICATION_JSON);
+        public void addHandlerMethods(List<HandlerMethod> handlerMethods) {
+            for(HandlerMethod hm : handlerMethods){
+                McpStatelessServerFeatures.SyncToolSpecification specification = McpToolUtils.toStatelessSyncToolSpecification(buildSyncToolCallback(hm), MimeTypeUtils.APPLICATION_JSON);
                 this.server.addTool(specification);
             }
         }
+    }
+
+    private ReturnMode parseReturnMode(HandlerMethod hm ){
+        Class<?> returnType = hm.getMethod().getReturnType();
+        if(String.class.equals(returnType)){
+            return ReturnMode.TEXT;
+        }
+
+        if(void.class == returnType){
+            return ReturnMode.VOID;
+        }
+
+        return ReturnMode.STRUCTURED;
     }
 
     private class McpStatelessAsyncServerWrapper implements McpServerWrapper{
@@ -304,13 +341,22 @@ public class JsonBomMCPBeanPostProcesser  implements BeanPostProcessor{
         }
 
         @Override
-        public void addToolCallbacks(List<ToolCallback> callbacks) {
-            for(ToolCallback callback : callbacks){
-                McpStatelessServerFeatures.AsyncToolSpecification specification = McpToolUtils.toStatelessAsyncToolSpecification(callback, MimeTypeUtils.APPLICATION_JSON);
-                this.server.addTool(specification);
+        public void addHandlerMethods(List<HandlerMethod> handlerMethods) {
+            for(HandlerMethod hm : handlerMethods){
+                ToolDefinition definition = buildToolDefinition(hm.getMethod());
+                McpSchema.Tool tool = McpSchema.Tool.builder()
+                    .name(definition.name())
+                    .description(definition.description())
+                    .inputSchema(ModelOptionsUtils.jsonToObject(definition.inputSchema(),
+                            McpSchema.JsonSchema.class))
+                    .build();
+                AsyncStatelessMcpToolMethodCallback callHandler = new AsyncStatelessMcpToolMethodCallback(parseReturnMode(hm), hm.getMethod(), hm.getBean());
+                McpStatelessServerFeatures.AsyncToolSpecification specification = McpStatelessServerFeatures.AsyncToolSpecification.builder()
+                    .tool(tool)
+                    .callHandler(callHandler)
+                    .build();
+                this.server.addTool(specification).block();//初始化的时候影响不大
             }
         }
     }
-
-    
 }

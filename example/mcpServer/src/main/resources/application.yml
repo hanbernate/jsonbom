@@ -8,5 +8,6 @@ spring:
         name: jsonbom-mcp-server
         version: 1.0.0
         protocol: STATELESS
+        type: ASYNC
         stateless:
           mcp-endpint:/mcp
