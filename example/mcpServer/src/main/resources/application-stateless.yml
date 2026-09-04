@@ -1,0 +1,6 @@
+spring:
+  ai:
+    mcp:
+      server:
+        protocol: STATELESS
+        type: ASYNC

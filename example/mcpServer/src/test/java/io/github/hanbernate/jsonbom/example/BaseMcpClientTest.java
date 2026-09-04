@@ -2,6 +2,7 @@ package io.github.hanbernate.jsonbom.example;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,48 +17,61 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import io.github.hanbernate.jsonbom.example.mcp.McpServerApplication;
 import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
-import io.modelcontextprotocol.spec.McpSchema.JsonSchema;
+import io.modelcontextprotocol.client.McpSyncClient;
+
+import org.springframework.ai.mcp.client.webflux.transport.WebClientStreamableHttpTransport;
+import org.springframework.ai.util.JacksonUtils;
+
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ListToolsResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
+import tools.jackson.databind.JsonNode;
 
 @SpringBootTest(classes = {McpServerApplication.class}, webEnvironment = WebEnvironment.RANDOM_PORT)
-public class McpClientTest {
+abstract class BaseMcpClientTest {
 
     @LocalServerPort // 2. 注入实际分配的随机端口
     private int port;
 
-    @Test
-    public void test(){
+    protected void test(){
+        McpSyncClient client = buildSyncClient();
+        String toolName = testListToolsAndGetToolName(client);
+        testCall(client, toolName);
+        closeClient(client);
+    }
+
+    protected McpSyncClient buildSyncClient(){
         var transport = WebClientStreamableHttpTransport.builder(WebClient.builder().baseUrl("http://localhost:" + port ))
             .build();
         var client = McpClient.sync(transport).build();
-
 		client.initialize();
-
 		client.ping();
+        return client;
+    }
+    public String testListToolsAndGetToolName(McpSyncClient client){
 
 		// List and demonstrate tools
 		ListToolsResult toolsList = client.listTools();
 		System.out.println("Available Tools = " + toolsList);
         assertNotEquals(0, toolsList.tools().size());
         Tool tool = toolsList.tools().get(0);
-        JsonSchema inputSchema = tool.inputSchema();
-        List<String> required = inputSchema.required();
+        Map<String, Object> inputSchema = tool.inputSchema();
+        List<String> required = (List<String>) inputSchema.get("required");
         assertEquals(1, required.size());
         assertEquals("request", required.get(0));
-        Map<String, Object> properties = inputSchema.properties();
+        Map<String, Object> properties = (Map<String, Object>)inputSchema.get("properties");
 
         Map<String, Object> userId = (Map<String, Object>) properties.get("userId");
         assertEquals("integer", userId.get("type"));
 
-        Map<String, Object> request = (Map<String, Object>) properties.get("request");
-        assertEquals("object", request.get("type"));
-        assertEquals("query request", request.get("description"));
-        List<String> requestRequired = (List<String>) request.get("required");
+        Map<String, Object> requestSchema = (Map<String, Object>) properties.get("request");
+        assertEquals("object", requestSchema.get("type"));
+        assertEquals("query request", requestSchema.get("description"));
+        List<String> requestRequired = (List<String>) requestSchema.get("required");
         assertEquals(2, requestRequired.size());
         assertTrue(requestRequired.contains("bom"));
-        Map<String, Object> requestProperties = (Map<String, Object>) request.get("properties");
+        Map<String, Object> requestProperties = (Map<String, Object>) requestSchema.get("properties");
 
         Map<String, Object> registryNum = (Map<String, Object>) requestProperties.get("registryNum");
         assertEquals("integer", registryNum.get("type"));
@@ -66,6 +80,31 @@ public class McpClientTest {
 
         assertBom(requestProperties.get("bom"));
 
+        return tool.name();
+
+        
+
+    }
+
+    protected void testCall(McpSyncClient client, String toolName){
+        String requestJson = """
+            {
+                "registryNum":0,
+                "bom":{
+                    "lesson":""
+                }
+            }
+                """;
+        JsonNode request = JacksonUtils.getDefaultJsonMapper().readTree(requestJson);
+        Map<String, Object> args = Map.of("request", request, "userId", 0);
+        CallToolRequest callToolRequest = new CallToolRequest(toolName, args, null);
+        CallToolResult callToolResult = client.callTool(callToolRequest);
+        Map<String, Object> result = (Map<String, Object>)callToolResult.structuredContent();
+        assertNotNull(result.get("lesson"));
+        assertNull(result.get("score"));
+    }
+
+    protected void closeClient(McpSyncClient client){
 		client.closeGracefully();
     }
 

@@ -1,4 +1,4 @@
-package io.github.hanbernate.jsonbom.core;
+package io.github.hanbernate.jsonbom.api;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
