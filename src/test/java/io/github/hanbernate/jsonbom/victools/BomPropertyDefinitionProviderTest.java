@@ -2,6 +2,7 @@ package io.github.hanbernate.jsonbom.victools;
 
 import java.lang.reflect.ParameterizedType;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
@@ -60,30 +61,38 @@ class BomPropertyDefinitionProviderTest {
     public void test() throws NoSuchFieldException, SecurityException{
         String expectedStr = """
             {
-                "type":"object",
-                "properties":{
-                    "bom":{
-                        "type":"object",
-                        "properties":{
-                            "lesson":{
-                                "type":"string",
-                                "description":"lesson name"
-                            },
-                            "score":{
-                                "type":"string",
-                                "description":"the score of the lesson"
+                "type": "object",
+                "properties": {
+                    "bom": {
+                        "type": "object",
+                        "properties": {
+                            "grades": {
+                            "type": "object",
+                            "properties": {
+                                    "lesson": {
+                                        "type": "string",
+                                        "description": "lesson name"
+                                    },
+                                    "score": {
+                                        "type": "string",
+                                        "description": "the score of the lesson"
+                                    }
+                                }
                             }
                         },
-                        "description":"response bom"
+                        "description": "response bom"
                     },
-                    "registryNum":{
-                        "type":"integer",
-                        "format":"int64",
-                        "description":"registryNum of the student"
+                    "registryNum": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "registryNum of the student"
                     }
                 },
-                "required":["bom","registryNum"]
-            }"
+                "required": [
+                    "bom",
+                    "registryNum"
+                ]
+            }
         """;
         JsonNode expect = JacksonUtils.getDefaultJsonMapper().readTree(expectedStr);
         ObjectNode actual = this.generator.generateSchema(Request.class);
@@ -118,6 +127,19 @@ class BomPropertyDefinitionProviderTest {
     }
 
     public static class Response{
+        List<Grade> grades;
+
+        public List<Grade> getGrades(){
+            return this.grades;
+        }
+
+        public List<Grade> setGrades(List<Grade> grades){
+            this.grades = grades;
+            return this.grades;
+        }
+    }
+
+    public static class Grade{
         @JsonPropertyDescription("lesson name")
         String lesson;
 
@@ -139,5 +161,6 @@ class BomPropertyDefinitionProviderTest {
         public void setScore(Integer score){
             this.score = score;
         }
+
     }
 }

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+### 0.2.0.rc2
+- 修复BomPropertyDefinitionProvider在处理泛型时异常
 ### 0.2.0.rc1
 - 新增MCP支持。使用 BomPropertyDefinitionProvider，配合 victools jsonschema-generator 自动生成带 @BomType 注解字段的 JSON Schema。如何与spring-ai集成可以参考example/mcpServer模块
 ### 0.1.0
