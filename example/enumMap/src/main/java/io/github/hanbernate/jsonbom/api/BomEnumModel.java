@@ -6,9 +6,7 @@ import java.util.function.Function;
 
 import org.reactivestreams.Publisher;
 
-import io.github.hanbernate.jsonbom.api.Bom;
 import reactor.core.publisher.Mono;
-import io.github.hanbernate.jsonbom.api.BomModel;
 
 public class BomEnumModel<T extends Enum<T> & BomModelField> implements BomModel{
     private Map<String, Publisher<?>> models = new HashMap<>();

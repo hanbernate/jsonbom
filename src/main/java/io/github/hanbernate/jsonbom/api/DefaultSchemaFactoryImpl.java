@@ -2,8 +2,6 @@ package io.github.hanbernate.jsonbom.api;
 
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +10,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import io.github.hanbernate.jsonbom.util.SchemaUtils;
 
 
 /**
@@ -143,7 +143,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         }
 
         // Parse BOM path: use annotation value if present, otherwise use field name as default
-        List<String> paths = Arrays.stream(getBomMappingValue(bomMapping, BomMapping::value, f.getName()).split(Pattern.quote(separator)))
+        List<String> paths = Arrays.stream(SchemaUtils.getBomMappingValue(bomMapping, BomMapping::value, f.getName()).split(Pattern.quote(separator)))
                 .filter(s -> !"".equals(s))
                 .collect(Collectors.toUnmodifiableList());
         result.setPath(paths);
@@ -155,7 +155,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         result.setActualType((Class<T>) responseType);
 
         // Priority 1: Custom value handler specified in @BomMapping
-        if(ValueHandler.class != getBomMappingValue(bomMapping, BomMapping::valueHandler, ValueHandler.class)){
+        if(ValueHandler.class != SchemaUtils.getBomMappingValue(bomMapping, BomMapping::valueHandler, ValueHandler.class)){
             Class<? extends ValueHandler<?>> vc = (Class<? extends ValueHandler<?>>) bomMapping.valueHandler();
             ValueHandler<T> valueHandler = (ValueHandler<T>) valueHandlers.getOrCreate(vc);
             result.setValueHandler(valueHandler);
@@ -169,60 +169,18 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
             return result;
         }
 
-        // Priority 3: Handle generic type for collection fields
-        if(Void.class != getBomMappingValue(bomMapping, BomMapping::genericType, Void.class)) {
-            result.setActualType((Class<T>) bomMapping.genericType());
-        }else if(result.isResponseCollection()){
-            result.setActualType((Class<T>) getGenericType(parent, f));
-        }
+        //Priority 3: Handle generic type for collection fields
+        result.setActualType(SchemaUtils.resolveActulaType(f, parent.getActualType(), bomMapping, responseType));
 
         // Determine if this field should be treated as a leaf (value node)
         Class<?> actualType = result.getActualType();
-        if(getBomMappingValue(bomMapping, BomMapping::valueNode, false) || actualType.isPrimitive() || actualType.getPackageName().startsWith("java") || Enum.class.isAssignableFrom(actualType)){
+        if(SchemaUtils.getBomMappingValue(bomMapping, BomMapping::valueNode, false) || actualType.isPrimitive() || actualType.getPackageName().startsWith("java") || Enum.class.isAssignableFrom(actualType)){
             return result;
         }
 
         // For complex nested types, recursively build child schemas
         result.setChildren(getOrCreateChildren(actualType, result));
         return result;
-    }
-
-    private Class<?> getGenericType(Schema<?> parent, Field f){
-        java.lang.reflect.Type genericType = f.getGenericType();
-        if(genericType.getClass().isAssignableFrom(Class.class)){
-            return (Class<?>) genericType;
-        }
-        java.lang.reflect.Type type = ((ParameterizedType) f.getGenericType()).getActualTypeArguments()[0];
-        if(type instanceof TypeVariable){
-            java.lang.reflect.Type actual = getGenericType((TypeVariable<?>) type, parent.getActualType());
-            return (Class<?>) actual;
-        }
-        return (Class<?>) type;
-    }
-
-    private java.lang.reflect.Type getGenericType(TypeVariable<?> targTypeVariable, Class<?> cls){
-        Class<?> superClass = cls.getSuperclass();
-        if(null == superClass){
-            return targTypeVariable;
-        }
-        java.lang.reflect.Type typeVariable = getGenericType(targTypeVariable, superClass);
-        if(typeVariable instanceof Class<?>){
-            return typeVariable;
-        }
-        TypeVariable<?>[] superTypeVariables = superClass.getTypeParameters();
-        for(int i = 0; i < superTypeVariables.length; i++){
-            if(typeVariable == superTypeVariables[i]){
-                return ((ParameterizedType)cls.getGenericSuperclass()).getActualTypeArguments()[i];
-            }
-        }
-        return targTypeVariable;
-    }
-
-    private <T> T getBomMappingValue(BomMapping bomMapping, Function<BomMapping, T> func, T defaultValue){
-        if(null == bomMapping){
-            return defaultValue;
-        }
-        return func.apply(bomMapping);
     }
 
     private Map<String, Schema<?>> getOrCreateChildren(Class<?> actualType, Schema<?> parent){

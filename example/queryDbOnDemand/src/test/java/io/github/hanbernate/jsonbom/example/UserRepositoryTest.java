@@ -2,14 +2,12 @@ package io.github.hanbernate.jsonbom.example;
 
 import io.github.hanbernate.jsonbom.api.Bom;
 import io.github.hanbernate.jsonbom.api.BomOrValue;
-import io.github.hanbernate.jsonbom.spring.AbstractBomDao;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
-import org.springframework.util.ReflectionUtils;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 

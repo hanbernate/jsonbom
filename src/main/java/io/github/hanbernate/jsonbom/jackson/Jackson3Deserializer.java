@@ -1,9 +1,5 @@
 package io.github.hanbernate.jsonbom.jackson;
 
-import java.io.IOException;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 import io.github.hanbernate.jsonbom.api.Bom;
 import io.github.hanbernate.jsonbom.api.BomOrValue;
 import tools.jackson.core.JacksonException;

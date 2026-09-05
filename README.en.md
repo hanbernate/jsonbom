@@ -145,6 +145,7 @@ public class DateTimeFormatValueHandler implements ValueHandler<String> {
 
 Specify the ValueHandler in your annotation:
 ```
+@Data
 class Response{
     @BomMapping(value = "datetime", valueHandler = DateTimeFormatValueHandler.class)
     private String datetimeStr;

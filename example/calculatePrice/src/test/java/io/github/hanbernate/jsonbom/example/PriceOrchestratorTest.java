@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.github.hanbernate.jsonbom.api.Bom;
-import io.github.hanbernate.jsonbom.api.BomOrValue;
 import io.github.hanbernate.jsonbom.api.JsonBomMapper;
 import io.github.hanbernate.jsonbom.example.PriceOrchestrator.PriceModel;
 import io.github.hanbernate.jsonbom.example.PriceOrchestrator.PriceTextValueHandler;

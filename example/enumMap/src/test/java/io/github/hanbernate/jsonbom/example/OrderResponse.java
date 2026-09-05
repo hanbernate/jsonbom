@@ -1,6 +1,5 @@
 package io.github.hanbernate.jsonbom.example;
 
-import java.time.LocalDateTime;
 import lombok.Data;
 import io.github.hanbernate.jsonbom.api.BomMapping;
 import java.math.BigDecimal;

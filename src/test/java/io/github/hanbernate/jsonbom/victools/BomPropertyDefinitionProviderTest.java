@@ -1,11 +1,6 @@
 package io.github.hanbernate.jsonbom.victools;
 
-import java.lang.reflect.ParameterizedType;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-
-import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.github.victools.jsonschema.generator.Option;
 import com.github.victools.jsonschema.generator.OptionPreset;
 import com.github.victools.jsonschema.generator.SchemaGenerator;
@@ -23,16 +18,14 @@ import org.springframework.ai.util.JacksonUtils;
 import org.springframework.ai.util.json.schema.SpringAiSchemaModule;
 
 import io.github.hanbernate.jsonbom.api.Bom;
-import io.github.hanbernate.jsonbom.api.BomType;
+import io.github.hanbernate.jsonbom.api.BomMapping;
+import io.github.hanbernate.jsonbom.api.ValueHandler;
 import io.github.hanbernate.jsonbom.jackson.Jackson3Deserializer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.annotation.JsonDeserialize;
 import tools.jackson.databind.node.ObjectNode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisplayName("BomPropertyDefinitionProvider test")
 class BomPropertyDefinitionProviderTest {
@@ -60,39 +53,55 @@ class BomPropertyDefinitionProviderTest {
     @Test
     public void test() throws NoSuchFieldException, SecurityException{
         String expectedStr = """
-            {
-                "type": "object",
-                "properties": {
-                    "bom": {
-                        "type": "object",
-                        "properties": {
-                            "grades": {
-                            "type": "object",
-                            "properties": {
-                                    "lesson": {
-                                        "type": "string",
-                                        "description": "lesson name"
-                                    },
-                                    "score": {
-                                        "type": "string",
-                                        "description": "the score of the lesson"
-                                    }
-                                }
-                            }
-                        },
-                        "description": "response bom"
-                    },
-                    "registryNum": {
-                        "type": "integer",
-                        "format": "int64",
-                        "description": "registryNum of the student"
-                    }
-                },
-                "required": [
-                    "bom",
-                    "registryNum"
-                ]
+ {
+  "type": "object",
+  "properties": {
+    "bom": {
+      "type": "object",
+      "properties": {
+        "valueNode": {
+          "type": "string"
+        },
+        "valuehander": {
+          "type": "string"
+        },
+        "premitive": {
+          "type": "string"
+        },
+        "boxed": {
+          "type": "string"
+        },
+        "enumNode": {
+          "type": "string"
+        },
+        "sublist": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "object",
+          "properties": {
+            "lesson": {
+              "type": "string"
+            },
+            "score": {
+              "type": "string"
             }
+          }
+        }
+      },
+      "description": "response bom"
+    },
+    "registryNum": {
+      "type": "integer",
+      "format": "int64",
+      "description": "registryNum of the student"
+    }
+  },
+  "required": [
+    "bom",
+    "registryNum"
+  ]
+}
         """;
         JsonNode expect = JacksonUtils.getDefaultJsonMapper().readTree(expectedStr);
         ObjectNode actual = this.generator.generateSchema(Request.class);
@@ -126,25 +135,91 @@ class BomPropertyDefinitionProviderTest {
 
     }
 
-    public static class Response{
-        List<Grade> grades;
+public static class Response{
+        @BomMapping (value="valueNode", valueNode = true)
+        Response valueNode;
 
-        public List<Grade> getGrades(){
-            return this.grades;
+        @BomMapping (value="valueHandler", valueHandler = DoNotingValueHandler.class)
+        Object valuehander;
+
+        int premitive;
+
+        Integer boxed;
+
+        io.github.hanbernate.jsonbom.api.Type enumNode;
+
+        List<Integer> sublist;
+
+        List<Grade> grade;
+
+        public Response getValueNode(){
+            return this.valueNode;
         }
 
-        public List<Grade> setGrades(List<Grade> grades){
-            this.grades = grades;
-            return this.grades;
+        public void setValueNode(Response valueNode){
+            this.valueNode = valueNode;
+        }
+
+        public Object getValuehander(){
+            return this.valuehander;
+        }
+
+        public void setValuehander(Object valuehander){
+            this.valuehander = valuehander;
+        }
+
+        public int getPremitive(){
+            return this.premitive;
+        }
+
+        public void setPremitive(int premitive){
+            this.premitive = premitive;
+        }
+
+        public Integer getBoxed(){
+            return this.boxed;
+        }
+
+        public void setBoxed(Integer boxed){
+            this.boxed = boxed;
+        }
+
+        public io.github.hanbernate.jsonbom.api.Type getEnumNode(){
+            return this.enumNode;
+        }
+
+        public void setEnumNode(io.github.hanbernate.jsonbom.api.Type enumNode){
+            this.enumNode = enumNode;
+        }
+
+        public List<Integer> getSublist(){
+            return this.sublist;
+        }
+
+        public void setSublist(List<Integer> sublist){
+            this.sublist = sublist;
+        }
+
+        public List<Grade> getGrade(){
+            return this.grade;
+        }
+
+        public void setGrade(List<Grade> grade){
+            this.grade = grade;
+        }
+    }
+
+    public static class DoNotingValueHandler implements ValueHandler<Object>{
+        @Override
+        public Object apply(Object model, String bomValue) {
+            return model;
         }
     }
 
     public static class Grade{
-        @JsonPropertyDescription("lesson name")
         String lesson;
 
-        @JsonPropertyDescription("the score of the lesson")
-        Integer score;
+        String score;
 
         public String getLesson(){
             return this.lesson;
@@ -154,13 +229,12 @@ class BomPropertyDefinitionProviderTest {
             this.lesson = lesson;
         }
 
-        public Integer getScore(){
+        public String getScore(){
             return this.score;
         }
 
-        public void setScore(Integer score){
+        public void setScore(String score){
             this.score = score;
         }
-
     }
 }

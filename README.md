@@ -69,7 +69,7 @@ public class Response{
 
     @BomMapping("grades")
     List<Grade> grades;
-
+    
     @Data
     public static class Grade{
         @BomMapping("lesson")
@@ -143,6 +143,7 @@ public class DateTimeFormatValueHandler implements ValueHandler<String> {
 
 在注解中指定ValueHandler：
 ```
+@Data
 class Response{
     @BomMapping(value = "datetime", valueHandler = DateTimeFormatValueHandler.class)
     private String datetimeStr;

@@ -1,6 +1,5 @@
 package io.github.hanbernate.jsonbom.spring;
 
-import io.github.hanbernate.jsonbom.api.JsonBomException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
