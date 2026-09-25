@@ -1,24 +1,26 @@
 # JsonBom
 
-A query language for APIs using plain JSON.
+[English](README.md) | **中文**
 
-## Introduction
+直接使用 JSON 的 API 查询语言。
 
-Designed primarily for client-side on-demand queries. Core features include:
-1. Integrate JSON deserialization components to parse client query requirements;
-2. Invoke server-side code on-demand based on client requirements;
-3. Support field-level custom logic;
-4. Transform between heterogeneous query languages and models.
+## 介绍
+
+主要用于客户端按需查询，核心功能包括：
+1. 集成JSON反序列化组件，解析客户端查询需求；
+2. 根据客户端需求，按需调用服务端代码；
+3. 可字段级别自定义逻辑；
+4. 异构查询语言与模型转换；
 
 
-## Requirements
+## 环境要求
 
 - JDK 17+
 - Reactor 3.0.0+
 
-## Quick Start
+## 快速开始
 
-### Add Dependency via Maven or Gradle
+### 通过Maven或者Gradle引入依赖
 Maven：
 ```
 <dependency>
@@ -32,9 +34,9 @@ Gradle：
 implementation group: 'io.github.hanbernate', name: 'jsonbom', version: 0.1.0
 ```
 
-### Integrate Jackson for JSON Deserialization
+### 集成Jackson反序列化JSON
 
-First, register the BOM deserializer:
+首先注册BOM反序列化解析：
 
 ```
 ObjectMapper objectMapper = new ObjectMapper();
@@ -44,8 +46,7 @@ module.addDeserializer(Bom.class, deserializer);
 objectMapper.registerModule(module);
 ```
 
-Add a BOM field to your query POJO:
-
+在查询的pojo中增加BOM字段，如：
 ```
 @Data
 class Request{
@@ -54,15 +55,14 @@ class Request{
 }
 ```
 
-### Create JsonBomMapper
+### 创建JsonBomMapper
 
 ```
 JsonBomMapper jsonBomMapper = new ReactorBomMapper();
 ```
 
-### Generate On-Demand Results
-Add @BomMapping annotations to your response class to define mappings:
-
+### 按需生成返回结果
+在返回中增加BomMapping注解，标明映射关系：
 ```
 @Data
 public class Response{
@@ -83,7 +83,7 @@ public class Response{
 
 }
 ```
-Use JsonBomMapper to get on-demand results:
+调用JsonBomMapper，按需返回结果
 ```
 Map<String, Publisher<?>> models = new HashMap<>();
 models.put("user", Mono.just(new User("zhangsan", 25, "male")));
@@ -91,8 +91,8 @@ models.put("grades", Flux.just(new Grade("Math", 95), new Grade("Chinese", 60), 
 Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Response.class,  models);
 ```
 
-### Request and Response
-Client request:
+### 请求与返回
+客户端请求：
 ```
 {
     "examRegistrationNumber":1234567,
@@ -105,7 +105,7 @@ Client request:
     }
 }
 ```
-The server will return based on the client's BOM structure:
+服务端会按照客户端bom的结构返回：
 ```
 {
     "name":"zhangsan",
@@ -121,18 +121,18 @@ The server will return based on the client's BOM structure:
     }]
 }
 ```
-## Advanced Topics
+## 进阶技巧
 
-### `@JsonProperty`Annotation Compatibility
+### `@JsonProperty`注解兼容
 ```
     ReactorJsonBomMapper mapper = new ReactorJsonBomMapper();
     mapper.setNameParser(new JacksonNameParser());
 ```
 
-### Custom BOM Processing Rules with ValueHandler
-ValueHandler enables personalized processing by interpreting JSON values.
+### 通过ValueHandler自定义Bom处理规则
+ValueHandler可以通过感知JSON的值来进行个性化处理，使用方式：
 
-Declare a ValueHandler:
+声明ValueHandler:
 ```
 public class DateTimeFormatValueHandler implements ValueHandler<String> {
     @Override
@@ -143,7 +143,7 @@ public class DateTimeFormatValueHandler implements ValueHandler<String> {
 }
 ```
 
-Specify the ValueHandler in your annotation:
+在注解中指定ValueHandler：
 ```
 class Response{
     @BomMapping(value = "datetime", valueHandler = DateTimeFormatValueHandler.class)
@@ -151,26 +151,26 @@ class Response{
 }
 ```
 
-### Register Default ValueHandler for Specific Return Types
+### 为指定类型的返回值指定默认ValueHandler
 ```
     JsonBomMapper mapper = new ReactorJsonBomMapper();
     mapper.registryValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
 ```
 
-### BOM Transformation
+### Bom转换
 ```
 Bom targetBom = bomAdapter.transformBom(sourceBom, TargetType.class);
 ```
 
-### Heterogeneous Model Transformation
+### 异构模型转换
 ```
 Mono<TargetType> target = jsonBomMapper.map(Mono.just(targetBom), TargetType.class, SourceType.class, models));
 ```
 
-# License
+# 许可证
 
 BSD 3-Clause License
 
-# Contact
+# 联系方式
 - 作者：Hanbernate
 - 联系方式：ghost_lmh@163.com
