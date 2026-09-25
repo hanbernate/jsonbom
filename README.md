@@ -20,6 +20,10 @@ Designed primarily for client-side on-demand queries. Core features include:
 
 ## Quick Start
 
+The steps below build a complete on-demand query flow: parse the client query into a `Bom`, describe the response with `@BomMapping`, and map only the requested data.
+
+Snippets use Lombok's `@Data` and omit imports.
+
 ### Add Dependency via Maven or Gradle
 Maven:
 ```
@@ -36,7 +40,9 @@ implementation group: 'io.github.hanbernate', name: 'jsonbom', version: 0.1.0
 
 ### Integrate Jackson for JSON Deserialization
 
-First, register the BOM deserializer:
+Register the BOM deserializer so that the client query can be parsed into a `Bom` object. Both Jackson 2 and Jackson 3 are supported.
+
+#### Jackson 2
 
 ```
 ObjectMapper objectMapper = new ObjectMapper();
@@ -46,7 +52,15 @@ module.addDeserializer(Bom.class, deserializer);
 objectMapper.registerModule(module);
 ```
 
-Add a BOM field to your query POJO:
+#### Jackson 3
+
+```
+JsonMapper jsonMapper = JsonMapper.builder()
+    .addModule(new SimpleModule().addDeserializer(Bom.class, new Jackson3Deserializer()))
+    .build();
+```
+
+### Add a BOM Field to Your Query POJO
 
 ```
 @Data
@@ -59,11 +73,12 @@ class Request{
 ### Create JsonBomMapper
 
 ```
-JsonBomMapper jsonBomMapper = new ReactorBomMapper();
+JsonBomMapper jsonBomMapper = new ReactorJsonBomMapper();
 ```
 
 ### Generate On-Demand Results
-Add @BomMapping annotations to your response class to define mappings:
+
+Add `@BomMapping` annotations to your response class to declare which fields are populated and where their data comes from:
 
 ```
 @Data
@@ -82,15 +97,23 @@ public class Response{
         @BomMapping("score")
         int score;
     }
+}
 
+@Data
+class User{
+    String name;
+    int age;
+    String gender;
 }
 ```
-Use JsonBomMapper to get on-demand results:
+
+Provide the source data as models and map the request BOM (`request` is the deserialized query POJO):
+
 ```
 Map<String, Publisher<?>> models = new HashMap<>();
 models.put("user", Mono.just(new User("zhangsan", 25, "male")));
-models.put("grades", Flux.just(new Grade("Math", 95), new Grade("Chinese", 60), new Grade("English", 80)));
-Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Response.class,  models);
+models.put("grades", Flux.just(new Response.Grade("Math", 95), new Response.Grade("Chinese", 60), new Response.Grade("English", 80)));
+Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Response.class, models);
 ```
 
 ### Request and Response
@@ -125,11 +148,22 @@ The server will return based on the client's BOM structure:
 ```
 ## Advanced Topics
 
-### `@JsonProperty`Annotation Compatibility
+### `@JsonProperty` Annotation Compatibility
+
+Use `JacksonNameParser` to take field names from Jackson's `@JsonProperty`:
 ```
-    ReactorJsonBomMapper mapper = new ReactorJsonBomMapper();
-    mapper.setNameParser(new JacksonNameParser());
+ReactorJsonBomMapper mapper = new ReactorJsonBomMapper();
+mapper.setNameParser(new JacksonNameParser());
 ```
+
+### `@BomMapping` Attributes
+
+| Attribute | Description |
+|-----------|-------------|
+| `value` | BOM path of the field, for example `user/name`. |
+| `genericType` | Element type for a collection field when it cannot be inferred, for example `@BomMapping(value = "grades", genericType = Grade.class)`. |
+| `valueHandler` | A `ValueHandler` implementation applied to this field. |
+| `valueNode` | Marks the field as a leaf value; no child BOM is built for it. |
 
 ### Custom BOM Processing Rules with ValueHandler
 ValueHandler enables personalized processing by interpreting JSON values.
@@ -155,18 +189,37 @@ class Response{
 
 ### Register Default ValueHandler for Specific Return Types
 ```
-    JsonBomMapper mapper = new ReactorJsonBomMapper();
-    mapper.registryValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
+JsonBomMapper mapper = new ReactorJsonBomMapper();
+mapper.registerValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
 ```
 
 ### BOM Transformation
+Transforms a BOM into the structure defined by a target type:
 ```
-Bom targetBom = bomAdapter.transformBom(sourceBom, TargetType.class);
+Bom targetBom = jsonBomMapper.getBomAdapter().transformBom(sourceBom, TargetType.class);
 ```
 
 ### Heterogeneous Model Transformation
 ```
-Mono<TargetType> target = jsonBomMapper.map(Mono.just(targetBom), TargetType.class, SourceType.class, models));
+Map<String, Publisher<?>> models = new HashMap<>();
+// populate models with source data publishers
+Publisher<TargetType> target = jsonBomMapper.map(Mono.just(targetBom), TargetType.class, SourceType.class, models);
+```
+
+### Pass Models with BomModel
+
+`map` also accepts a `BomModel` implementation instead of a `Map`:
+```
+class MyModels implements BomModel {
+    @Override
+    public Map<String, Publisher<?>> getModels() {
+        Map<String, Publisher<?>> models = new HashMap<>();
+        models.put("user", Mono.just(new User("zhangsan", 25, "male")));
+        return models;
+    }
+}
+
+Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Response.class, new MyModels());
 ```
 
 # License

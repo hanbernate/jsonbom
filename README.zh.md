@@ -20,6 +20,10 @@
 
 ## 快速开始
 
+以下步骤串起一次完整的按需查询：解析客户端查询为 `Bom`，用 `@BomMapping` 描述返回结构，再映射出被请求的数据。
+
+示例使用 Lombok 的 `@Data` 并省略 import。
+
 ### 通过Maven或者Gradle引入依赖
 Maven：
 ```
@@ -36,7 +40,9 @@ implementation group: 'io.github.hanbernate', name: 'jsonbom', version: 0.1.0
 
 ### 集成Jackson反序列化JSON
 
-首先注册BOM反序列化解析：
+注册BOM反序列化解析，使客户端查询可以被解析为 `Bom` 对象。Jackson 2 和 Jackson 3 均支持。
+
+#### Jackson 2
 
 ```
 ObjectMapper objectMapper = new ObjectMapper();
@@ -46,7 +52,15 @@ module.addDeserializer(Bom.class, deserializer);
 objectMapper.registerModule(module);
 ```
 
-在查询的pojo中增加BOM字段，如：
+#### Jackson 3
+
+```
+JsonMapper jsonMapper = JsonMapper.builder()
+    .addModule(new SimpleModule().addDeserializer(Bom.class, new Jackson3Deserializer()))
+    .build();
+```
+
+### 在查询的pojo中增加BOM字段
 ```
 @Data
 class Request{
@@ -58,11 +72,12 @@ class Request{
 ### 创建JsonBomMapper
 
 ```
-JsonBomMapper jsonBomMapper = new ReactorBomMapper();
+JsonBomMapper jsonBomMapper = new ReactorJsonBomMapper();
 ```
 
 ### 按需生成返回结果
-在返回中增加BomMapping注解，标明映射关系：
+
+在返回类中增加 `@BomMapping` 注解，标明字段的数据来源：
 ```
 @Data
 public class Response{
@@ -80,15 +95,22 @@ public class Response{
         @BomMapping("score")
         int score;
     }
+}
 
+@Data
+class User{
+    String name;
+    int age;
+    String gender;
 }
 ```
-调用JsonBomMapper，按需返回结果
+
+提供数据模型并映射请求 BOM（`request` 为反序列化后的查询对象）：
 ```
 Map<String, Publisher<?>> models = new HashMap<>();
 models.put("user", Mono.just(new User("zhangsan", 25, "male")));
-models.put("grades", Flux.just(new Grade("Math", 95), new Grade("Chinese", 60), new Grade("English", 80)));
-Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Response.class,  models);
+models.put("grades", Flux.just(new Response.Grade("Math", 95), new Response.Grade("Chinese", 60), new Response.Grade("English", 80)));
+Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Response.class, models);
 ```
 
 ### 请求与返回
@@ -123,11 +145,22 @@ Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Re
 ```
 ## 进阶技巧
 
-### `@JsonProperty`注解兼容
+### `@JsonProperty` 注解兼容
+
+使用 `JacksonNameParser` 从 Jackson 的 `@JsonProperty` 读取字段名：
 ```
-    ReactorJsonBomMapper mapper = new ReactorJsonBomMapper();
-    mapper.setNameParser(new JacksonNameParser());
+ReactorJsonBomMapper mapper = new ReactorJsonBomMapper();
+mapper.setNameParser(new JacksonNameParser());
 ```
+
+### `@BomMapping` 属性
+
+| 属性 | 说明 |
+|------|------|
+| `value` | 字段对应的 BOM 路径，如 `user/name`。 |
+| `genericType` | 集合字段无法推断元素类型时指定，如 `@BomMapping(value = "grades", genericType = Grade.class)`。 |
+| `valueHandler` | 作用在该字段上的 `ValueHandler` 实现。 |
+| `valueNode` | 把字段标记为叶子值，不再为它构建子 BOM。 |
 
 ### 通过ValueHandler自定义Bom处理规则
 ValueHandler可以通过感知JSON的值来进行个性化处理，使用方式：
@@ -153,18 +186,37 @@ class Response{
 
 ### 为指定类型的返回值指定默认ValueHandler
 ```
-    JsonBomMapper mapper = new ReactorJsonBomMapper();
-    mapper.registryValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
+JsonBomMapper mapper = new ReactorJsonBomMapper();
+mapper.registerValueHandler(RegisteredType.class, new RegisteredTypeValueHandler());
 ```
 
 ### Bom转换
+将一个 BOM 转换为目标类型定义的结构：
 ```
-Bom targetBom = bomAdapter.transformBom(sourceBom, TargetType.class);
+Bom targetBom = jsonBomMapper.getBomAdapter().transformBom(sourceBom, TargetType.class);
 ```
 
 ### 异构模型转换
 ```
-Mono<TargetType> target = jsonBomMapper.map(Mono.just(targetBom), TargetType.class, SourceType.class, models));
+Map<String, Publisher<?>> models = new HashMap<>();
+// 填充源数据
+Publisher<TargetType> target = jsonBomMapper.map(Mono.just(targetBom), TargetType.class, SourceType.class, models);
+```
+
+### 通过BomModel传入数据模型
+
+`map` 除了 `Map`，也接受 `BomModel` 实现：
+```
+class MyModels implements BomModel {
+    @Override
+    public Map<String, Publisher<?>> getModels() {
+        Map<String, Publisher<?>> models = new HashMap<>();
+        models.put("user", Mono.just(new User("zhangsan", 25, "male")));
+        return models;
+    }
+}
+
+Publisher<Response> response = jsonBomMapper.map(Mono.just(request.getBom()), Response.class, new MyModels());
 ```
 
 # 许可证
