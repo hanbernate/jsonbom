@@ -1,4 +1,5 @@
 package io.github.hanbernate.jsonbom.api;
+
 /**
  * A record representing either a leaf value or a nested BOM (Bill of Materials) structure.
  * <p>
@@ -16,7 +17,7 @@ package io.github.hanbernate.jsonbom.api;
  * @author hanbernate
  * @since 0.0.1
  */
-public record BomOrValue(String value, Bom bom) implements Cloneable{
+public record BomOrValue(String value, Bom bom) implements Cloneable {
 
     /**
      * Returns the type of this instance.
@@ -31,7 +32,7 @@ public record BomOrValue(String value, Bom bom) implements Cloneable{
         }
         return Type.VALUE;
     }
-    
+
     /**
      * Retrieves the child BomOrValue associated with the specified key from the nested BOM.
      *

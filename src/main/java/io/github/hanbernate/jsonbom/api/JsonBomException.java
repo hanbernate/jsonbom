@@ -1,4 +1,5 @@
 package io.github.hanbernate.jsonbom.api;
+
 /**
  * Exception thrown when an error occurs during JSON BOM (Bill of Materials)
  * mapping or transformation operations.
@@ -9,7 +10,7 @@ package io.github.hanbernate.jsonbom.api;
  * @author hanbernate
  * @since 0.0.1
  */
-public class JsonBomException extends RuntimeException{
+public class JsonBomException extends RuntimeException {
     /**
      * Constructs a new exception with the specified detail message.
      *
@@ -27,7 +28,7 @@ public class JsonBomException extends RuntimeException{
      * @param e the underlying cause of the exception
      * @since 0.0.1
      */
-    public JsonBomException(String msg, Exception e){
+    public JsonBomException(String msg, Throwable e){
         super(msg, e);
     }
 }

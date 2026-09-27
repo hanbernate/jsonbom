@@ -34,7 +34,7 @@ import java.util.stream.Collector;
  * @author hanbernate
  * @since 0.0.2
  */
-public class BomCollectorImpl<T> implements Collector<T, Bom , Bom>{
+public class BomCollectorImpl<T> implements Collector<T, Bom, Bom> {
 
     private Function<T, String> keyFunction;
 
@@ -63,7 +63,7 @@ public class BomCollectorImpl<T> implements Collector<T, Bom , Bom>{
      */
     @Override
     public BiConsumer<Bom, T> accumulator() {
-        return (bom, t) ->{
+        return (bom, t) -> {
             bom.merge(keyFunction.apply(t), valueFunction.apply(t));
         };
     }
@@ -121,5 +121,4 @@ public class BomCollectorImpl<T> implements Collector<T, Bom , Bom>{
     public Supplier<Bom> supplier() {
         return Bom::new;
     }
-    
 }

@@ -4,6 +4,7 @@ import io.github.hanbernate.jsonbom.api.Bom;
 import io.github.hanbernate.jsonbom.api.BomMapping;
 import io.github.hanbernate.jsonbom.api.BomOrValue;
 import io.github.hanbernate.jsonbom.api.JsonBomMapper;
+import io.github.hanbernate.jsonbom.api.Type;
 import io.github.hanbernate.jsonbom.api.ValueHandler;
 import io.github.hanbernate.jsonbom.core.PublisherLog;
 import io.github.hanbernate.jsonbom.example.repository.GoodsRepository;
@@ -33,8 +34,18 @@ public class PriceOrchestrator {
     public Mono<PriceModel> getPriceModel(Mono<Bom> bom, Mono<Long> goodsId){
         Mono<Bom> upstreamBom = bom.map(this::upstreamBom).cache();
 
-        Mono<GoodsRepository.Goods> goods = goodsRepository.findById(upstreamBom.map(b -> b.getBom("goods")), goodsId);
-        Mono<BigDecimal> discount = discountOrchestrator.calculateDiscount(goodsId);
+        // Split the transformed BOM into the sub-BOM each upstream understands and
+        // hand it over directly: no flatMap, no nested lambdas. The upstream BOM
+        // already carries exactly the keys the response needs, so gating is handled
+        // where it belongs — the mapper only subscribes a requested key, and each
+        // repository only fills the fields present in its sub-BOM. Caching keeps the
+        // goods publisher shared by originalPrice and finalPrice from being fetched
+        // twice.
+        Mono<Bom> goodsBom = subBom(upstreamBom, "goods");
+        Mono<Bom> discountBom = subBom(upstreamBom, "discount");
+
+        Mono<GoodsRepository.Goods> goods = goodsRepository.findById(goodsBom, goodsId).cache();
+        Mono<BigDecimal> discount = discountOrchestrator.calculateDiscount(discountBom, goodsId).cache();
         Mono<BigDecimal> finalPrice = goods.zipWith(discount, this::calculateFinalPrice);
 
         Map<String, Publisher<?>> models = new HashMap<>();
@@ -60,6 +71,31 @@ public class PriceOrchestrator {
             r.merge("goods", new BomOrValue(null , goodsBom));
         }
         return r;
+    }
+
+    /**
+     * Extracts the sub-BOM the downstream understands for {@code key} of the
+     * transformed BOM:
+     * <ul>
+     *     <li>a nested node yields its own BOM;</li>
+     *     <li>a leaf marker (such as {@code discount}) yields a BOM that still
+     *         carries that key, so downstream {@code containsKey(...)} checks keep
+     *         working;</li>
+     *     <li>an absent key yields an empty {@code Mono}, so the downstream is
+     *         skipped entirely.</li>
+     * </ul>
+     * Handing these sub-BOMs straight to the repositories avoids the nested
+     * {@code flatMap} gating the orchestrator used to need.
+     */
+    private static Mono<Bom> subBom(Mono<Bom> upstreamBom, String key) {
+        return upstreamBom.filter(b -> b.containsKey(key))
+            .map(b -> {
+                BomOrValue node = b.get(key);
+                if (Type.BOM == node.getType() && null != node.bom()) {
+                    return node.bom();
+                }
+                return Bom.createWithEmptyValue(key);
+            });
     }
 
     @Data

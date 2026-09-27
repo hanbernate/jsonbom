@@ -3,7 +3,6 @@ package io.github.hanbernate.jsonbom.jackson;
 import io.github.hanbernate.jsonbom.api.Bom;
 import io.github.hanbernate.jsonbom.api.BomOrValue;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -22,11 +21,10 @@ public class JacksonDeserializer extends JsonDeserializer<Bom> {
      * @param ctxt the deserialization context
      * @return a Bom instance representing the parsed JSON structure
      * @throws IOException if an I/O error occurs during parsing
-     * @throws JsonProcessingException if JSON parsing fails
      * @since 0.0.1
      */
     @Override
-    public Bom deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+    public Bom deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
         Bom result = new Bom();
 
         String key;
@@ -39,7 +37,7 @@ public class JacksonDeserializer extends JsonDeserializer<Bom> {
                     return result;
                 }
 
-                ctxt.reportWrongTokenException(this, JsonToken.FIELD_NAME, (String)null, new Object[0]);
+                ctxt.reportWrongTokenException(this, JsonToken.FIELD_NAME, t.asString(), new Object[0]);
             }
 
             key = p.currentName();

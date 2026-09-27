@@ -76,8 +76,6 @@ public class SpringBeanUtil implements BeanUtil {
                 }
             }).filter(i -> null != i.getValue())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        
-
     }
 
     private List<PropertyDescriptor> computePropertyDescriptors(Class<?> cls){

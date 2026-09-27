@@ -1,6 +1,5 @@
 package io.github.hanbernate.jsonbom.api;
 
-
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,7 +18,7 @@ import java.util.stream.Collectors;
  * @author hanbernate
  * @since 0.0.1
  */
-public class Schema<R>{
+public class Schema<R> {
     List<String> path = Collections.emptyList();
     String name;
     Class<R> actualType;
@@ -121,8 +120,6 @@ public class Schema<R>{
         this.valueHandler = valueHandler;
     }
 
-    
-
     /**
      * Returns the child schemas for nested properties of this schema.
      * <p>
@@ -181,8 +178,8 @@ public class Schema<R>{
      * @return a formatted string containing the name and path
      * @since 0.0.1
      */
-    public String toString4Exception(String pathSeprator){
-        return "name="+ this.getName() +
-            ", path=" + this.getPath().stream().collect(Collectors.joining(pathSeprator));
+    public String toString4Exception(String pathSeparator){
+        return "name=" + this.getName() +
+            ", path=" + this.getPath().stream().collect(Collectors.joining(pathSeparator));
     }
 }

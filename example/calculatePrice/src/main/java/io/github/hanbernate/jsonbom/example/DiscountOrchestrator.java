@@ -1,7 +1,6 @@
 package io.github.hanbernate.jsonbom.example;
 
 import io.github.hanbernate.jsonbom.api.Bom;
-import io.github.hanbernate.jsonbom.api.BomOrValue;
 import io.github.hanbernate.jsonbom.core.PublisherLog;
 import io.github.hanbernate.jsonbom.example.repository.PromotionRepository;
 import io.github.hanbernate.jsonbom.example.repository.PromotionRepository.Promotion;
@@ -15,15 +14,16 @@ public class DiscountOrchestrator {
     @Autowired
     PromotionRepository promotionRepository;
 
+    /**
+     * Sums the discounts of every promotion of the goods. The caller passes the
+     * promotion sub-BOM, so this method only aggregates the fields that sub-BOM
+     * requested instead of building its own.
+     */
     @PublisherLog
-    public Mono<BigDecimal> calculateDiscount(Mono<Long> goodsId){
-            Bom promotion = new Bom();
-            promotion.merge("discount", BomOrValue.EMPTY);
-            return promotionRepository.findByGoodsIdId(Mono.just(promotion), goodsId)
-                .map(l -> {
-                    return l.stream()
-                        .map(Promotion::getDiscount)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                });
+    public Mono<BigDecimal> calculateDiscount(Mono<Bom> promotionBom, Mono<Long> goodsId){
+        return promotionRepository.findByGoodsIdId(promotionBom, goodsId)
+            .map(l -> l.stream()
+                .map(Promotion::getDiscount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 }

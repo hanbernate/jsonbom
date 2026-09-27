@@ -53,9 +53,4 @@ public class BomAdapterTest {
 
         assertEquals(4, modelNode.bom().size());
     }
-
-    @Test
-    public void test(){
-        assertTrue("jsonbom-0.0.1.module.md5".contains(".module"));
-    }
 }
