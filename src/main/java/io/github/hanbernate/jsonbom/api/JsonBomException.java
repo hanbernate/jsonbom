@@ -28,7 +28,7 @@ public class JsonBomException extends RuntimeException {
      * @param e the underlying cause of the exception
      * @since 0.0.1
      */
-    public JsonBomException(String msg, Exception e){
+    public JsonBomException(String msg, Throwable e){
         super(msg, e);
     }
 }

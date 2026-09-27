@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 0.1.1
+
+- 修复 DefaultBomAdapterImpl#transformBom 可能导致 IndexOutOfBoundsException
+
 ### 0.1.0
 - 新增Jackson3支持
 ### 0.0.3

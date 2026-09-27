@@ -46,7 +46,7 @@ public class DefaultBomAdapterImpl implements BomAdapter {
             if(null != childSchema){
                 // Recursively transform the value according to the child schema
                 BomOrValue targetBomOrValue = visit(bomOrValue, childSchema, 1);
-                String key = childSchema.getPath().get(0);
+                String key = childSchema.getPath().isEmpty() ? "" : childSchema.getPath().get(0);
                 result.merge(key, targetBomOrValue);
             }else{
                 // If no childSchema exists, current bom node will be skipped.
@@ -91,7 +91,7 @@ public class DefaultBomAdapterImpl implements BomAdapter {
             Schema<?> childSchema = bomSchema.getChildren().get(entry.getKey());
             if(null != childSchema){
                 // The modelKey is the first element in the child's path (the root key for this subtree)
-                String modelKey = childSchema.getPath().get(0);
+                String modelKey = childSchema.getPath().isEmpty() ? "" : childSchema.getPath().get(0);
                 BomOrValue childBomOrValue = visit(entry.getValue(), childSchema, 1);
                 result.merge(modelKey, childBomOrValue);
             }
