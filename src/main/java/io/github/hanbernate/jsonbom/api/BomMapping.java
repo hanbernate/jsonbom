@@ -14,7 +14,6 @@ import java.lang.annotation.Target;
  * The path separator used in the {@link #value()} is configurable at the framework level.
  * By default, the forward slash character ({@code /}) is used as the separator, but users can customize
  * it through the framework configuration (e.g., {@code .}, {@code ->}, or any other delimiter).
- * <p>
  *
  * @author hanbernate
  * @since 0.0.1
@@ -35,7 +34,7 @@ public @interface BomMapping {
      * @since 0.0.1
      */
     String value();
-    
+
     /**
      * Specifies the generic type for collection fields (e.g., {@code List<T>}, {@code Set<T>}).
      * <p>
@@ -45,7 +44,7 @@ public @interface BomMapping {
      *
      * @return the generic type class for collection elements
      * @since 0.0.1
-     */ 
+     */
     Class<?> genericType() default Void.class;
 
     /**
@@ -59,7 +58,7 @@ public @interface BomMapping {
      */
     @SuppressWarnings("rawtypes")
     Class<? extends ValueHandler> valueHandler() default ValueHandler.class;
-    
+
     /**
      * Indicates whether this field corresponds to a leaf value node rather than a nested BOM structure.
      * <p>

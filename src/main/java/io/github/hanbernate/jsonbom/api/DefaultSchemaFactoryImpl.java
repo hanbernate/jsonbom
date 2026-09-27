@@ -13,7 +13,6 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-
 /**
  * Default implementation of the SchemaFactory interface.
  * <p>
@@ -29,7 +28,7 @@ import java.util.stream.Collectors;
  * @since 0.0.1
  */
 public class DefaultSchemaFactoryImpl implements SchemaFactory {
-    
+
     // Registry for value handlers by type
     private ValueHandlers valueHandlers;
 
@@ -89,14 +88,13 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
      * Sets the BeanUtil instance used for JavaBean introspection.
      *
      * @param beanUtil the BeanUtil instance to use
-     * @return the previously configured BeanUtil
+     * @return the newly configured BeanUtil
      * @since 0.0.1
      */
     public BeanUtil setBeanUtil(BeanUtil beanUtil){
         this.beanUtil = beanUtil;
         return this.beanUtil;
     }
-
 
     /**
      * {@inheritDoc}
@@ -150,7 +148,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
 
         result.setName(this.nameParser.apply(f));
 
-        Class<?> responseType =  f.getType();
+        Class<?> responseType = f.getType();
         result.setResponseType(responseType);
         result.setActualType((Class<T>) responseType);
 
@@ -170,7 +168,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         }
 
         // Priority 3: Handle generic type for collection fields
-        if(Void.class != getBomMappingValue(bomMapping, BomMapping::genericType, Void.class)) {
+        if(Void.class != getBomMappingValue(bomMapping, BomMapping::genericType, Void.class)){
             result.setActualType((Class<T>) bomMapping.genericType());
         }else if(result.isResponseCollection()){
             result.setActualType((Class<T>) getGenericType(parent, f));
@@ -238,7 +236,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         for(Class<?> cur = actualType; cur != null; cur = cur.getSuperclass()){
             for(Field childField : cur.getDeclaredFields()){
                 Schema<?> child = create(parent, childField);
-                if(null != child) {
+                if(null != child){
                     children.putIfAbsent(child.getName(), child);
                 }
             }

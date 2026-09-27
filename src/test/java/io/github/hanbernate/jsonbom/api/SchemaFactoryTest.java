@@ -212,7 +212,7 @@ public class SchemaFactoryTest {
     }
 
     @Test
-    public void valueHandlerCahce(){
+    public void valueHandlerCache(){
         class TestType{
             @BomMapping(value = "model", valueHandler = TestValueHandler.class)
             Integer field;

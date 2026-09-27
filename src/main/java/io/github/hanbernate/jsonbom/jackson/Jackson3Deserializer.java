@@ -11,7 +11,18 @@ import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.ValueDeserializer;
-public class Jackson3Deserializer extends ValueDeserializer<Bom>{
+
+/**
+ * Jackson 3 deserializer that converts a JSON object into a {@link Bom} instance.
+ * <p>
+ * This deserializer builds a BOM tree structure from JSON field names and their
+ * corresponding values. Empty objects and null/empty string values are represented
+ * by {@link BomOrValue#EMPTY}.
+ *
+ * @author hanbernate
+ * @since 0.1.0
+ */
+public class Jackson3Deserializer extends ValueDeserializer<Bom> {
     /**
      * Deserializes a JSON object into a {@link Bom} instance.
      * <p>

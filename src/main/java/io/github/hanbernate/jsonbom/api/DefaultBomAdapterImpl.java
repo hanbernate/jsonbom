@@ -11,12 +11,11 @@ import org.slf4j.LoggerFactory;
  * This implementation transforms a BOM structure by traversing the source BOM
  * and reorganizing its fields according to the path definitions in the target
  * type's schema. It handles both leaf values and nested BOM structures recursively.
- * <p>
  *
  * @author hanbernate
  * @since 0.0.1
  */
-public class DefaultBomAdapterImpl implements BomAdapter{
+public class DefaultBomAdapterImpl implements BomAdapter {
     private static final Logger logger = LoggerFactory.getLogger(DefaultBomAdapterImpl.class);
     DefaultBomAdapterImpl(){
 
@@ -99,16 +98,17 @@ public class DefaultBomAdapterImpl implements BomAdapter{
         }
         return result;
     }
+
     /**
      * Wraps a leaf BomOrValue node with nested BOM structures to create the full path hierarchy.
      * <p>
      * Example: Given a leaf value "V", a path ["a", "b", "c"], and startIdx = 1,
-     * this method produces: { "b": { "c": "V" } } 
-     *  <p>
+     * this method produces: { "b": { "c": "V" } }
+     * <p>
      * Note: The root key ("a") is not wrapped by this method but is handled by the caller
      * via {@code childSchema.getPath().get(0)} and {@link Bom#merge(String, BomOrValue)}.
      * The final merged result becomes: { "a": { "b": { "c": "V" } } }
-     * 
+     *
      * @param leaf the leaf node to wrap (may be a value or already transformed BOM)
      * @param bomSchema the schema containing the path definition
      * @param startIdx the starting index in the path (inclusive). Use 1 to skip the root
@@ -129,6 +129,5 @@ public class DefaultBomAdapterImpl implements BomAdapter{
             current = new BomOrValue(null, bom);
         }
         return current;
-
     }
 }

@@ -28,7 +28,7 @@ public interface BomAdapter {
      * @since 0.0.1
      */
     Bom transformBom(Bom targetBom, Class<?> targetType);
-    
+
     /**
      * Factory method to initialize and create a BomAdapter instance.
      *
