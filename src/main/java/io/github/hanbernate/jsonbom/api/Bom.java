@@ -11,12 +11,11 @@ import java.util.Map;
  * <p>
  * A Bom instance can contain nested BOM structures or leaf values, supporting
  * recursive merge operations for hierarchical data structures.
- * <p>
  *
  * @author hanbernate
  * @since 0.0.1
  */
-public class Bom extends HashMap<String, BomOrValue>{
+public class Bom extends HashMap<String, BomOrValue> {
 
     /**
      * Merges a key-value pair into this BOM node.
@@ -48,7 +47,7 @@ public class Bom extends HashMap<String, BomOrValue>{
         Bom exists = existValue.bom();
 
         value.bom().entrySet().stream()
-            .forEach(entry ->{
+            .forEach(entry -> {
                 exists.merge(entry.getKey(), entry.getValue());
             });
         return this;
@@ -88,13 +87,15 @@ public class Bom extends HashMap<String, BomOrValue>{
     /**
      * Retrieves the nested {@link Bom} associated with the specified key.
      * <p>
-     * If the value mapped to the key is not a nested BOM (i.e. its type is
-     * {@link Type#VALUE}), a {@link JsonBomException} is thrown.
+     * If the key does not exist, {@code null} is returned. If the value mapped to
+     * the key is not a nested BOM (i.e. its type is {@link Type#VALUE}),
+     * a {@link JsonBomException} is thrown.
      *
      * @param key the key whose associated nested BOM is to be returned;
      *            must not be {@code null}
-     * @return the nested {@link Bom} instance for the given key
-     * @throws JsonBomException if the key does not exist or the value is not a nested BOM
+     * @return the nested {@link Bom} instance for the given key, or {@code null}
+     *         if no value is mapped to the key
+     * @throws JsonBomException if the value mapped to the key is not a nested BOM
      * @since 0.0.2
      */
     public Bom getBom(String key){
@@ -103,7 +104,7 @@ public class Bom extends HashMap<String, BomOrValue>{
             return null;
         }
         if(Type.BOM != bomOrValue.getType()){
-            throw new JsonBomException("Cannnot getBom with key "+ key);
+            throw new JsonBomException("Cannot getBom with key " + key);
         }
         return bomOrValue.bom();
     }

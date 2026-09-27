@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.lang.reflect.Field;
 import java.util.function.Function;
+
 /**
  * A name parser that extracts the JSON property name from a Java field using
  * Jackson's {@link JsonProperty} annotation.

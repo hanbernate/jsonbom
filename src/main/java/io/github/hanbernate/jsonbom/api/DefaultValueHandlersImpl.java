@@ -28,7 +28,7 @@ public class DefaultValueHandlersImpl implements ValueHandlers {
      * Sets the BeanUtil instance used for instantiating value handler classes.
      *
      * @param beanUtil the BeanUtil instance to use
-     * @return the previously configured BeanUtil
+     * @return the newly configured BeanUtil
      * @since 0.0.1
      */
     public BeanUtil setBeanUtil(BeanUtil beanUtil){

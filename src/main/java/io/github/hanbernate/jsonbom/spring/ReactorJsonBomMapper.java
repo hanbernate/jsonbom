@@ -19,6 +19,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 /**
  * Reactive JSON BOM mapper implementation using Project Reactor and Spring Framework.
  * <p>
@@ -29,7 +30,54 @@ import java.util.stream.Stream;
  * @since 0.0.1
  */
 public class ReactorJsonBomMapper implements JsonBomMapper {
-    private static Logger logger = LoggerFactory.getLogger(ReactorJsonBomMapper.class);
+    private static final Logger logger = LoggerFactory.getLogger(ReactorJsonBomMapper.class);
+
+    @SuppressWarnings("unchecked")
+    private static final BiFunction<Object, String, ?> mapFunc = (model, p) -> {
+        try {
+            if(model instanceof byte[]){
+                return ((byte[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof short[]){
+                return ((short[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof int[]){
+                return ((int[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof long[]){
+                return ((long[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof float[]){
+                return ((float[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof double[]){
+                return ((double[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof boolean[]){
+                return ((boolean[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof char[]){
+                return ((char[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof Object[]){
+                return ((Object[])model)[Integer.valueOf(p)];
+            }
+            if(model instanceof List<?>){
+                return ((List<?>)model).get(Integer.valueOf(p));
+            }
+            if(model instanceof Map<?,?>){
+                return ((Map<String, ?>)model).get(p);
+            }
+
+            PropertyDescriptor pd = BeanUtils.getPropertyDescriptor(model.getClass(), p);
+            if(null == pd || null == pd.getReadMethod()){
+                return null;
+            }
+            return pd.getReadMethod().invoke(model);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new JsonBomException("Fail to read value for field " + p + " for " + model.getClass().getName(), e);
+        }
+    };
 
     private ValueHandlers valueHandlers;
 
@@ -96,7 +144,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
      *
      * @since 0.0.1
      */
-   @Override
+    @Override
     public ValueHandler<?> registerValueHandler(Class<?> type, ValueHandler<?> valueHandler) {
         return this.valueHandlers.register(type, valueHandler);
     }
@@ -108,8 +156,8 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
      */
     @Override
     public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType, Map<String, Publisher<?>> models) {
-        return ((Mono<Bom>) bomPublisher)
-                .flatMap(bom ->{
+        return Mono.from(bomPublisher)
+                .flatMap(bom -> {
                     Schema<T> responseSchema = registerSchemaIfAbsent(responseType);
                     Mono<T> result = Mono.just(BeanUtils.instantiateClass(responseType));
                     for(Map.Entry<String, BomOrValue> entry : bom.entrySet()){
@@ -119,7 +167,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                         }
                         BomOrValue child = entry.getValue();
                         Mono<?> fieldPublisher = visit(models, child, childSchema);
-                        result = nullableZip(result, fieldPublisher, (r, v) ->{
+                        result = nullableZip(result, fieldPublisher, (r, v) -> {
                             Method writeMethod = childSchema.getWriteMethod();
                             if(null != writeMethod && null != v){
                                 try {
@@ -138,18 +186,19 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 });
     }
 
-    private static <T, U, R> Mono<R> nullableZip(Mono<T> monoT, Mono<U> monoU, BiFunction<T, U ,R> func){
+    private static <T, U, R> Mono<R> nullableZip(Mono<T> monoT, Mono<U> monoU, BiFunction<T, U, R> func){
         Mono<Optional<T>> wrappedT = monoT.map(Optional::of).defaultIfEmpty(Optional.empty());
         Mono<Optional<U>> wrappedU = monoU.map(Optional::of).defaultIfEmpty(Optional.empty());
         return Mono.zip(wrappedT, wrappedU, (optT, optU) -> func.apply(optT.orElse(null), optU.orElse(null)));
     }
+
     /**
      * {@inheritDoc}
      *
      * @since 0.0.2
      */
     @Override
-    public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType,  BomModel bomModel) {
+    public <T> Publisher<T> map(Publisher<Bom> bomPublisher, final Class<T> responseType, BomModel bomModel) {
         return map(bomPublisher, responseType, bomModel.getModels());
     }
 
@@ -159,7 +208,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
             return Mono.empty();
         }
 
-        String path = 0 == responseSchema.getPath().size() ? "" : responseSchema.getPath().get(0);
+        String path = responseSchema.getPath().isEmpty() ? "" : responseSchema.getPath().get(0);
         Publisher<?> model = models.get(path);
         if(null == model){
             return Mono.empty();
@@ -185,7 +234,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
             throw new JsonBomException("Flux cannot be converted to " + responseSchema.getResponseType().getName());
 
         }else{
-            return ((Mono<?>) model).cache().map(m -> {
+            return Mono.from(model).cache().map(m -> {
                 T r = visit(bomOrValue, m, responseSchema, 1, false);
                 return Optional.ofNullable(r);
             }).filter(Optional::isPresent)
@@ -193,7 +242,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         }
     }
 
-    private <T> T visit(BomOrValue bomOrValue, Object parentModel, Schema<T> current, int startIdx, boolean useActualType) throws JsonBomException {
+    private <T> T visit(BomOrValue bomOrValue, Object parentModel, Schema<T> current, int startIdx, boolean useActualType){
         if(null == parentModel){
             return null;
         }
@@ -258,7 +307,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
             if(null != childSchema){
                 Object fieldValue = visit(child, model, childSchema, 0, false);
                 Method writeMethod = childSchema.getWriteMethod();
-                if(null != writeMethod && null != fieldValue &&( childSchema.getResponseType().isPrimitive()
+                if(null != writeMethod && null != fieldValue && (childSchema.getResponseType().isPrimitive()
                     || fieldValue.getClass().isPrimitive() || childSchema.getResponseType().isAssignableFrom(fieldValue.getClass()))) {
                     try{
                         writeMethod.invoke(result, fieldValue);
@@ -280,53 +329,6 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
         return Arrays.stream((T[]) model);
     }
 
-    @SuppressWarnings("unchecked")
-    private static final BiFunction<Object,String, ?> mapFunc = (model , p) -> {
-        try {
-            if(model instanceof byte[]){
-                return  ((byte[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof short[]){
-                return  ((short[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof int[]){
-                return  ((int[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof long[]){
-                return  ((long[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof float[]){
-                return  ((float[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof double[]){
-                return  ((double[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof boolean[]){
-                return  ((boolean[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof char[]){
-                return  ((char[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof Object[]){
-                return  ((Object[])model)[Integer.valueOf(p)];
-            }
-            if(model instanceof List<?>){
-                return  ((List<?>)model).get(Integer.valueOf(p));
-            }
-            if(model instanceof Map<?,?>){
-                return ((Map<String, ?>)model).get(p);
-            }
-
-            PropertyDescriptor pd = BeanUtils.getPropertyDescriptor(model.getClass(), p);
-            if(null == pd || null == pd.getReadMethod()){
-                return null;
-            }
-            return pd.getReadMethod().invoke(model);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new JsonBomException("Fail to read value for field"+ p + " for " + model.getClass().getName(), e);
-        }
-    };
-
     private Object getModelByPath(List<String> path, Object parentModel, int startIdx) {
         Object currentModel = parentModel;
         for(int i = startIdx; i < path.size() && null != currentModel; i++){
@@ -342,7 +344,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
      * @since 0.0.1
      */
     @Override
-    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels) {
+    public <T, U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels) {
         Publisher<Bom> modelBomPublisher = Mono.from(targetBomPublisher)
                 .map(bom -> bomAdapter.transformBom(bom, targetType));
         Mono<U> modelResult = ((Mono<U>) map(modelBomPublisher, modelType, sourceModels)).cache();
@@ -350,12 +352,12 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
                 .entrySet()
                 .stream()
                 .filter(entry -> null != entry.getValue().getReadMethod())
-                .collect(Collectors.toMap(Map.Entry::getKey, entry->{
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
                     Schema<?> schema = entry.getValue();
-                    return  modelResult.map(u -> {
+                    return modelResult.map(u -> {
                         try {
                             return schema.getReadMethod().invoke(u);
-                        } catch (IllegalAccessException | InvocationTargetException e ) {
+                        } catch (IllegalAccessException | InvocationTargetException e) {
             throw new JsonBomException("Fail to read value for schema" + schema.toString4Exception(schemaFactory.getSeparator()) + " in " + u.getClass().getName(), e);
                         }
                     });
@@ -369,7 +371,7 @@ public class ReactorJsonBomMapper implements JsonBomMapper {
      * @since 0.0.1
      */
     @Override
-    public <T,U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, BomModel bomModel) {
+    public <T, U> Publisher<T> map(Publisher<Bom> targetBomPublisher, Class<T> targetType, Class<U> modelType, BomModel bomModel) {
         return map(targetBomPublisher, targetType, modelType, bomModel.getModels());
     }
 

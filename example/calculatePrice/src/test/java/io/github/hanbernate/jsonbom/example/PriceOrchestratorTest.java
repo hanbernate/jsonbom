@@ -1,18 +1,17 @@
 package io.github.hanbernate.jsonbom.example;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.github.hanbernate.jsonbom.api.Bom;
 import io.github.hanbernate.jsonbom.api.JsonBomMapper;
 import io.github.hanbernate.jsonbom.example.PriceOrchestrator.PriceModel;
 import io.github.hanbernate.jsonbom.example.PriceOrchestrator.PriceTextValueHandler;
 import io.github.hanbernate.jsonbom.example.repository.GoodsRepository;
-import io.github.hanbernate.jsonbom.jackson.JacksonDeserializer;
+import io.github.hanbernate.jsonbom.jackson.Jackson3Deserializer;
 import io.github.hanbernate.jsonbom.jackson.JacksonNameParser;
 import io.github.hanbernate.jsonbom.spring.ReactorJsonBomMapper;
 
 import org.junit.jupiter.api.*;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -29,7 +28,7 @@ class PriceOrchestratorTest {
 
     private PriceOrchestrator orchestrator;
     private JsonBomMapper jsonBomMapper;
-    private ObjectMapper jsonMapper;
+    private JsonMapper jsonMapper;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -37,12 +36,10 @@ class PriceOrchestratorTest {
         mapper.setNameParser(new JacksonNameParser());
         jsonBomMapper = mapper;
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonDeserializer<Bom> deserializer = new JacksonDeserializer();
-        SimpleModule module = new SimpleModule();
-        module.addDeserializer(Bom.class, deserializer);
-        objectMapper.registerModule(module);
-        jsonMapper = objectMapper;
+        jsonMapper = JsonMapper.builder()
+                .addModule(new SimpleModule()
+                        .addDeserializer(Bom.class, new Jackson3Deserializer()))
+                .build();
 
         orchestrator = new PriceOrchestrator();
         Field f = PriceOrchestrator.class.getDeclaredField("jsonBomMapper");
@@ -81,7 +78,7 @@ class PriceOrchestratorTest {
             GoodsRepository.Goods goods = new GoodsRepository.Goods(
                     42L, "Test Goods", new BigDecimal("199.00"), BigDecimal.ZERO);
             when(mockGoodsRepo.findById(any(), any())).thenReturn(Mono.just(goods));
-            when(mockDiscountOrch.calculateDiscount(any())).thenReturn(Mono.just(new BigDecimal("20.00")));
+            when(mockDiscountOrch.calculateDiscount(any(), any())).thenReturn(Mono.just(new BigDecimal("20.00")));
 
             String bomJson = """
                     {
@@ -112,7 +109,7 @@ class PriceOrchestratorTest {
             GoodsRepository.Goods goods = new GoodsRepository.Goods(
                     42L, "Test Goods", new BigDecimal("199.00"), BigDecimal.ZERO);
             when(mockGoodsRepo.findById(any(), any())).thenReturn(Mono.just(goods));
-            when(mockDiscountOrch.calculateDiscount(any())).thenReturn(Mono.just(new BigDecimal("20.00")));
+            when(mockDiscountOrch.calculateDiscount(any(), any())).thenReturn(Mono.just(new BigDecimal("20.00")));
 
             String bomJson = """
                     {

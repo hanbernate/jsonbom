@@ -28,7 +28,7 @@ public interface BomAdapter {
      * @since 0.0.1
      */
     Bom transformBom(Bom targetBom, Class<?> targetType);
-    
+
     /**
      * Factory method to initialize and create a BomAdapter instance.
      *
@@ -36,7 +36,7 @@ public interface BomAdapter {
      * @return a newly initialized BomAdapter instance
      * @since 0.0.1
      */
-    public static BomAdapter init(SchemaFactory schemaFactory){
+    static BomAdapter init(SchemaFactory schemaFactory){
         DefaultBomAdapterImpl instance = new DefaultBomAdapterImpl();
         instance.setSchemaFactory(schemaFactory);
         return instance;

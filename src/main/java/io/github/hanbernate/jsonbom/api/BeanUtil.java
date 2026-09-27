@@ -16,21 +16,27 @@ import java.beans.PropertyDescriptor;
  * @since 0.0.1
  */
 public interface BeanUtil {
-     /**
+    /**
      * Returns the property descriptor for the specified property of the given class.
      * <p>
      * The property descriptor contains metadata about the property, including its type,
      * read method (getter), and write method (setter).
+     * <p>
+     * If the property does not exist on the given class, {@code null} is returned
+     * rather than an exception being thrown. Callers are expected to handle a
+     * {@code null} result accordingly.
      *
      * @param clazz the Class object of the target class
      * @param propertyName the property name (following JavaBean naming conventions)
-     * @return the PropertyDescriptor instance for the property, containing complete property metadata
-     * @throws JsonBomException if the property does not exist, an introspection error occurs,
-     *                          or any other exceptional condition arises
+     * @return the PropertyDescriptor instance for the property, containing complete property
+     *         metadata, or {@code null} if the property does not exist
+     * @throws JsonBomException if an introspection error occurs, or any other exceptional
+     *                          condition arises
      * @since 0.0.1
      */
     PropertyDescriptor getPropertyDescriptor(Class<?> clazz, String propertyName) throws JsonBomException;
- /**
+
+    /**
      * Instantiates an object of the specified class.
      * <p>
      * Typically creates an instance by invoking the class's default no-argument constructor.

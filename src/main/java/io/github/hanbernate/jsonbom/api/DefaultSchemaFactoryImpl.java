@@ -90,13 +90,13 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
      *
      * @param beanUtil the BeanUtil instance to use
      * @return the previously configured BeanUtil
+     * @return the newly configured BeanUtil
      * @since 0.0.1
      */
     public BeanUtil setBeanUtil(BeanUtil beanUtil){
         this.beanUtil = beanUtil;
         return this.beanUtil;
     }
-
 
     /**
      * {@inheritDoc}
@@ -150,7 +150,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
 
         result.setName(this.nameParser.apply(f));
 
-        Class<?> responseType =  f.getType();
+        Class<?> responseType = f.getType();
         result.setResponseType(responseType);
         result.setActualType((Class<T>) responseType);
 
@@ -168,7 +168,6 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
             result.setValueHandler(valueHandler);
             return result;
         }
-
         //Priority 3: Handle generic type for collection fields
         result.setActualType(SchemaUtils.resolveActulaType(f, parent.getActualType(), bomMapping, responseType));
 
@@ -182,7 +181,6 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         result.setChildren(getOrCreateChildren(actualType, result));
         return result;
     }
-
     private Map<String, Schema<?>> getOrCreateChildren(Class<?> actualType, Schema<?> parent){
 
         Map<String, Schema<?>> children = childrenCache.getOrDefault(actualType, new ConcurrentHashMap<>());

@@ -3,6 +3,7 @@ package io.github.hanbernate.jsonbom.api;
 import org.reactivestreams.Publisher;
 
 import java.util.Map;
+
 /**
  * JSON BOM Mapper interface that provides functionality for mapping JSON Bill of Materials (BOM)
  * to Java objects.
@@ -39,7 +40,7 @@ public interface JsonBomMapper {
      * @return the previously registered value handler associated with the type, or null if none existed
      * @since 0.0.1
      */
-    ValueHandler<?>registerValueHandler(Class<?> responseType, ValueHandler<?> valueHandler);
+    ValueHandler<?> registerValueHandler(Class<?> responseType, ValueHandler<?> valueHandler);
 
     /**
      * Maps a BOM data stream into an object stream of the specified target type.
@@ -56,6 +57,7 @@ public interface JsonBomMapper {
      * @since 0.0.1
      */
     <T> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Map<String, Publisher<?>> models);
+
     /**
      * Maps a BOM data stream into an object stream of the specified target type,
      * accepting a {@link BomModel} as the model data source.
@@ -76,7 +78,6 @@ public interface JsonBomMapper {
     /**
      * Maps a BOM data stream into an object stream of the specified target type,
      * with explicit specification of the source model type.
-     * 
      *
      * @param <T> the generic type of the target type
      * @param <U> the generic type of the source model type
@@ -88,7 +89,8 @@ public interface JsonBomMapper {
      * @return a Publisher stream containing mapped objects, where each BOM item is converted
      *         into an instance of the target type
      */
-    <T,U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels);
+    <T, U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType, Map<String, Publisher<?>> sourceModels);
+
     /**
      * Maps a BOM data stream into an object stream of the specified target type,
      * with explicit source model type and a {@link BomModel} as the model data source.
@@ -107,8 +109,8 @@ public interface JsonBomMapper {
      *         into an instance of the target type
      * @since 0.0.2
      */
-    <T,U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType,  BomModel bomModel);
-    
+    <T, U> Publisher<T> map(Publisher<Bom> bomPublisher, Class<T> targetType, Class<U> modelType, BomModel bomModel);
+
     /**
      * Returns the BOM adapter used by this mapper.
      * <p>

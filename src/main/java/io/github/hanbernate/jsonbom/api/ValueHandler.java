@@ -20,7 +20,7 @@ package io.github.hanbernate.jsonbom.api;
  * @since 0.0.1
  */
 public interface ValueHandler<R> {
-   /**
+    /**
      * Applies the value handler logic to convert the given BOM string value
      * into the target type.
      * <p>
@@ -33,5 +33,5 @@ public interface ValueHandler<R> {
      * @return the converted value to be set on the target field
      * @since 0.0.1
      */
-   R apply(Object model, String bomValue);
+    R apply(Object model, String bomValue);
 }
