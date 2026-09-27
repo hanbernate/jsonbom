@@ -180,6 +180,7 @@ select user_id,name,avatar from t_user WHERE user_id = ?
 
 ## 相关示例
 
+- [示例编码规范](../CONVENTIONS.zh.md) — 所有示例共同遵循的编码约定
 - [calculatePrice](../calculatePrice/README.zh.md) — 基础按需计算
 - [enumMap](../enumMap/README.zh.md) — 枚举驱动的模型注册
 - [mcpServer](../mcpServer/README.zh.md) — 面向 MCP 工具的 BOM 查询 Schema

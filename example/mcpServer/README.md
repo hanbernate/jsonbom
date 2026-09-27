@@ -181,6 +181,7 @@ Run:
 
 ## Related Examples
 
+- [Example conventions](../CONVENTIONS.md) — the coding conventions every example follows
 - [calculatePrice](../calculatePrice/README.md) — basic on-demand calculation
 - [enumMap](../enumMap/README.md) — enum-based model registry
 - [queryDbOnDemand](../queryDbOnDemand/README.md) — on-demand SQL projection

@@ -155,6 +155,7 @@ Mono<OrderResponse> response = (Mono<OrderResponse>) bomMapper.map(Mono.just(req
 
 ## 相关示例
 
+- [示例编码规范](../CONVENTIONS.zh.md) — 所有示例共同遵循的编码约定
 - [calculatePrice](../calculatePrice/README.zh.md) — 基础按需计算
 - [queryDbOnDemand](../queryDbOnDemand/README.zh.md) — 按需 SQL 列裁剪
 - [mcpServer](../mcpServer/README.zh.md) — 面向 MCP 工具的 BOM 查询 Schema

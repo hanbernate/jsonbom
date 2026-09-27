@@ -1,6 +1,5 @@
 package io.github.hanbernate.jsonbom.core;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +13,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.json.JsonMapper;
 import reactor.test.StepVerifier;
 
 import ch.qos.logback.classic.Level;
@@ -32,8 +32,8 @@ class PublisherLogAdviceTest {
     @EnableAspectJAutoProxy
     static class TestConfig {
         @Bean
-        ObjectMapper objectMapper() {
-            return new ObjectMapper();
+        JsonMapper objectMapper() {
+            return JsonMapper.builder().build();
         }
 
         @Bean
@@ -234,7 +234,7 @@ class PublisherLogAdviceTest {
     }
 
     private static void assertLogField(String logJson, String field, String expectedJson) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
+        JsonMapper mapper = JsonMapper.builder().build();
         assertEquals(mapper.readTree(expectedJson), mapper.readTree(logJson).get(field));
     }
 }

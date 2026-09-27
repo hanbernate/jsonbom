@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-jsonbom 的基础示例（入门场景）。展示的技术点：
+jsonbom 的基础示例（入门场景）。它以 Spring Boot WebFlux 应用的形式运行，因此整个按需取数流程都可以通过 HTTP 来体验。展示的技术点：
 
 1. 客户端查询 BOM 驱动下游取数，未请求的字段不产生任何取数动作；
 2. 用 `@BomMapping` 描述返回模型与 BOM 路径的对应关系；
@@ -10,7 +10,9 @@ jsonbom 的基础示例（入门场景）。展示的技术点：
 4. 派生字段通过 `Bom.merge` 把它缺失的依赖补进上游 BOM；
 5. 用冷流 `Publisher` 注册多个模型，映射器只订阅被请求字段需要的模型；
 6. `ValueHandler` 实现字段级自定义逻辑；
-7. `@PublisherLog` AOP 切面打印响应式方法的入参与返回值。
+7. `@PublisherLog` AOP 切面打印响应式方法的入参与返回值；
+8. 用 **Jackson 3**（`tools.jackson` + `Jackson3Deserializer`）解析请求 BOM；
+9. 用 **`WebClient`** 走一次真实 HTTP 跳转调用接口 —— 集成测试把请求 BOM POST 给 `PriceController`，并断言按需返回的结果。
 
 ## 场景
 
@@ -23,23 +25,70 @@ jsonbom 的基础示例（入门场景）。展示的技术点：
 | `finalPrice` | 计算得出 | `max(originalPrice - discount, 0)` |
 | `priceText` | 计算得出 | `finalPrice` 格式化后的文本，如 `￥196.60` |
 
-客户端只请求需要的字段；各数据源按收到的 BOM 键决定填充哪些属性，未请求的字段不会产生任何取数动作。
+客户端只请求需要的字段。BOM 作为请求体提交，编排层把重排后的子 BOM 交给各 Repository，由它们只填充被请求的字段。
 
 ## 项目结构
 
 ```
 src/main/java/io/github/hanbernate/jsonbom/
 ├── example/
-│   ├── AppConfig.java                # Spring 配置（ComponentScan + AspectJ 代理）
+│   ├── PriceApplication.java         # @SpringBootApplication（扫描库与示例包）
+│   ├── AppConfig.java                # AspectJ 自动代理 + Jackson 3 JsonMapper / JsonBomMapper Bean
 │   ├── PriceOrchestrator.java        # 入口：请求 BOM -> PriceModel
 │   ├── DiscountOrchestrator.java     # 折扣汇总
+│   ├── web/
+│   │   └── PriceController.java      # POST /price/{goodsId} —— 接收 JSON BOM
 │   └── repository/
-│       ├── GoodsRepository.java      # 模拟商品数据源
-│       └── PromotionRepository.java  # 模拟促销数据源
+│       ├── GoodsRepository.java      # @Repository，固定商品数据
+│       └── PromotionRepository.java  # @Repository，固定促销数据
 └── core/
     ├── PublisherLog.java             # @PublisherLog 注解
     └── PublisherLogAdvice.java       # AOP 日志：打印响应式方法的入参与返回值
 ```
+
+```
+src/main/resources/
+└── application.yml                   # server.port=18082
+```
+
+## HTTP 入口
+
+`PriceController` 接收 `text/plain` 形式的紧凑 JSON BOM，返回 `application/json`：
+
+```java
+@PostMapping(value = "/price/{goodsId}",
+        consumes = MediaType.TEXT_PLAIN_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE)
+public Mono<PriceModel> price(@PathVariable Long goodsId,
+        @RequestBody(required = false) String body) {
+    Bom bom = (null == body || body.isBlank()) ? new Bom() : jsonMapper.readValue(body, Bom.class);
+    return priceOrchestrator.getPriceModel(Mono.just(bom), Mono.just(goodsId));
+}
+```
+
+BOM 通过注入的 Jackson 3 `JsonMapper` Bean 解析；HTTP 请求/响应体本身仍由 Spring WebFlux 使用 Jackson 2 进行（反）序列化，因此两个 Jackson 版本共存：
+
+* **Jackson 3** 负责 `Bom` —— 传输中的紧凑 BOM JSON，由 `AppConfig` 提供的 `JsonMapper` Bean 读取。
+* **Jackson 2** 负责 `String` 类型的 BOM 请求体与 JSON 响应的 POJO 编解码。
+
+## 数据来源
+
+`GoodsRepository.findById` 与 `PromotionRepository.findByGoodsIdId` 是进程内的 `@Repository` Bean，持有固定数据，使示例保持自包含。它们只填充收到的子 BOM 中存在的字段，模拟一次按列裁剪的查询：
+
+```java
+public Mono<Goods> findById(Mono<Bom> bom, Mono<Long> goodsId) {
+    return Mono.zip(bom, goodsId, (b, id) -> {
+        Goods goods = new Goods(0L, "", BigDecimal.ZERO, BigDecimal.ZERO);
+        if (b.containsKey("goodsId"))       goods.setGoodsId(id);
+        if (b.containsKey("goodsName"))     goods.setGoodsName("Sample Goods");
+        if (b.containsKey("originalPrice")) goods.setOriginalPrice(new BigDecimal("199.00"));
+        if (b.containsKey("discount"))      goods.setDiscount(new BigDecimal("0.8"));
+        return goods;
+    });
+}
+```
+
+真实的 HTTP 跳转放在测试里：`PriceEndpointIntegrationTest` 在固定端口启动应用，由 `WebClient` 把 BOM POST 到 `PriceController`，断言响应中恰好只包含被请求的字段。
 
 ## 返回模型
 
@@ -66,7 +115,7 @@ public static class PriceModel {
 
 ## 请求与返回
 
-客户端请求（声明需要的 `PriceModel` 字段）：
+客户端请求（声明需要的 `PriceModel` 字段），以 `text/plain` 提交：
 
 ```json
 {
@@ -76,7 +125,7 @@ public static class PriceModel {
 }
 ```
 
-返回（数值由示例中的模拟数据源产生）：
+返回（数值由固定数据的 Repository 产生）：
 
 ```json
 {
@@ -87,7 +136,7 @@ public static class PriceModel {
 }
 ```
 
-只请求部分字段时，例如 `{ "discount": "" }`，返回中只有 `discount` 有值，其余字段为 `null`，且不会触发商品查询。
+只请求部分字段时，例如 `{ "discount": "" }`，返回中只有 `discount` 有值，其余字段为 `null`，因为它们从未被订阅。
 
 ## 实现细节
 
@@ -121,15 +170,14 @@ public static class PriceModel {
 
    `Bom.merge` 对已存在的键不做覆盖，并对嵌套 BOM 递归合并，所以客户端已请求的 `originalPrice` 不会被改写。商品 BOM 中始终只包含 `originalPrice`：折扣统一走促销模型查询，不再通过商品表获取。
 
-   请求 BOM 同时是向上游传递的载体：`transformBom(targetBom, PriceModel.class)` 把客户端请求重排为模型路径，派生字段（`finalPrice`）通过 `Bom.merge` 把它缺失的依赖（`discount`、`goods/originalPrice`）补进该 BOM，各数据源只收到属于自己的子 BOM（`upstreamBom.map(b -> b.getBom("goods"))`），因此下游严格按请求字段取数。
-
-3. `upstreamBom` 使用 `.cache()` 缓存：它同时被商品查询与最终价计算消费。
-
-4. 各 `Publisher` 以与上游 BOM 键一致的模型名注册：
+3. 重排后的 BOM 会被拆分成各下游理解的子 BOM 并直接传递 —— 不再使用嵌套 `flatMap`。`subBom` 辅助方法：`goods` 返回其嵌套 BOM；`discount` 叶子标记返回带该键的单键 BOM；键缺失时返回空 `Mono`（从而完全跳过该上游）：
 
    ```java
-   Mono<GoodsRepository.Goods> goods = goodsRepository.findById(upstreamBom.map(b -> b.getBom("goods")), goodsId);
-   Mono<BigDecimal> discount = discountOrchestrator.calculateDiscount(goodsId);
+   Mono<Bom> goodsBom = subBom(upstreamBom, "goods");
+   Mono<Bom> discountBom = subBom(upstreamBom, "discount");
+
+   Mono<Goods> goods = goodsRepository.findById(goodsBom, goodsId).cache();
+   Mono<BigDecimal> discount = discountOrchestrator.calculateDiscount(discountBom, goodsId).cache();
    Mono<BigDecimal> finalPrice = goods.zipWith(discount, this::calculateFinalPrice);
 
    Map<String, Publisher<?>> models = new HashMap<>();
@@ -139,19 +187,13 @@ public static class PriceModel {
    return (Mono<PriceModel>) (Publisher<?>) jsonBomMapper.map(bom, PriceModel.class, models);
    ```
 
-   这些 Publisher 是冷流：映射器只订阅被请求字段需要的模型，未请求的模型不会执行。
+   把关依然是自动的：映射器只订阅被请求的键，各仓储只填充其子 BOM 中存在的字段。`goods` 与 `discount` 这两个 Publisher 都做了缓存，因为它们各被两个字段消费（`originalPrice` 与 `finalPrice` 都需要商品；`discount` 与 `finalPrice` 都需要折扣）。如果没有缓存，`@PublisherLog` 的急切订阅与重复消费会各自构建出多余的 Publisher。
 
-5. `GoodsRepository.findById` 与 `PromotionRepository.findByGoodsIdId` 模拟数据库访问，并严格按收到的 BOM 取数，键存在才填充对应字段：
+4. `GoodsRepository.findById` 与 `PromotionRepository.findByGoodsIdId` 只填充收到的子 BOM 中存在的字段，因此未被请求的字段不会被生产。
 
-   ```java
-   if (b.containsKey("originalPrice")) {
-       goods.setOriginalPrice(new BigDecimal("199.00"));
-   }
-   ```
+5. `DiscountOrchestrator.calculateDiscount(Mono<Bom> promotionBom, Mono<Long> goodsId)` 汇总该商品的促销折扣，只读取促销子 BOM 所请求的字段。
 
-6. `DiscountOrchestrator.calculateDiscount` 构造只包含 `discount` 的最小促销 BOM，并把该商品的促销折扣汇总为一个 `BigDecimal`。
-
-7. `PriceTextValueHandler` 把 `finalPrice` 转换为展示文案，值缺失时返回 `null`：
+6. `PriceTextValueHandler` 把 `finalPrice` 转换为展示文案，值缺失时返回 `null`：
 
    ```java
    public String apply(Object model, String bomValue) {
@@ -162,11 +204,21 @@ public static class PriceModel {
    }
    ```
 
-8. `getPriceModel` 与 `calculateDiscount` 上的 `@PublisherLog` 触发 `PublisherLogAdvice`：切面先缓存 `Mono`/`Flux` 类型的入参与返回值（日志不会引入额外订阅），再以 DEBUG 级别输出一行 JSON，包含 `class`、`method`、`args`、`result`：
+7. `getPriceModel` 与 `calculateDiscount` 上的 `@PublisherLog` 触发 `PublisherLogAdvice`：切面先缓存 `Mono`/`Flux` 类型的入参与返回值（日志不会引入额外订阅），再以 DEBUG 级别输出一行 JSON，包含 `class`、`method`、`args`、`result`。
 
-   ```json
-   {"class":"io.github.hanbernate.jsonbom.example.PriceOrchestrator","method":"getPriceModel","args":{"bom":{"finalPrice":""},"goodsId":42},"result":{"originalPrice":199.00,"discount":2.40,"finalPrice":196.60,"priceText":"￥196.60"}}
-   ```
+## 运行应用
+
+```
+./gradlew :calculatePrice:bootRun
+```
+
+然后以 `text/plain` 提交一个 BOM：
+
+```
+curl -X POST http://localhost:18082/price/42 \
+     -H "Content-Type: text/plain" \
+     -d '{"originalPrice":"","discount":"","finalPrice":""}'
+```
 
 ## 测试
 
@@ -177,6 +229,7 @@ public static class PriceModel {
 | `PriceOrchestratorTest.CalculateFinalPriceTest` | 减法与最小为 0 的兜底 |
 | `PriceOrchestratorTest.PriceTextValueHandlerTest` | `￥` 前缀、整数、null 处理 |
 | `PublisherLogAdviceTest` | `Mono` / 普通对象 / `null` / 空 Publisher 入参与返回值的 AOP 日志 |
+| `PriceEndpointIntegrationTest` | 真实 HTTP 跳转的端到端验证：`WebClient` 把 BOM POST 到 `/price/{goodsId}`，并断言只返回被请求的字段 |
 
 运行：
 
@@ -186,6 +239,7 @@ public static class PriceModel {
 
 ## 相关示例
 
+- [示例编码规范](../CONVENTIONS.zh.md) — 所有示例共同遵循的编码约定
 - [enumMap](../enumMap/README.zh.md) — 枚举驱动的模型注册
 - [queryDbOnDemand](../queryDbOnDemand/README.zh.md) — 按需 SQL 列裁剪
 - [mcpServer](../mcpServer/README.zh.md) — 面向 MCP 工具的 BOM 查询 Schema

@@ -180,6 +180,7 @@ Run:
 
 ## Related Examples
 
+- [Example conventions](../CONVENTIONS.md) — the coding conventions every example follows
 - [calculatePrice](../calculatePrice/README.md) — basic on-demand calculation
 - [enumMap](../enumMap/README.md) — enum-based model registry
 - [mcpServer](../mcpServer/README.md) — MCP tool schema for BOM queries

@@ -181,6 +181,7 @@ public Object postProcessAfterInitialization(@NonNull Object bean, @NonNull Stri
 
 ## 相关示例
 
+- [示例编码规范](../CONVENTIONS.zh.md) — 所有示例共同遵循的编码约定
 - [calculatePrice](../calculatePrice/README.zh.md) — 基础按需计算
 - [enumMap](../enumMap/README.zh.md) — 枚举驱动的模型注册
 - [queryDbOnDemand](../queryDbOnDemand/README.zh.md) — 按需 SQL 列裁剪

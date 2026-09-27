@@ -12,19 +12,18 @@ import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Slf4j
 @Aspect
 @Component
 public class PublisherLogAdvice {
     @Autowired
-    ObjectMapper objectMapper;
+    JsonMapper objectMapper;
 
     @Around("@annotation(PublisherLog)")
     public Object cachePublisherArgs(ProceedingJoinPoint joinPoint) throws Throwable {
