@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 0.1.2
+
+- 修复 Schema初始化时 可能导致 ClassCastException
+
 ### 0.1.1
 
 - 修复 DefaultBomAdapterImpl#transformBom 可能导致 IndexOutOfBoundsException
