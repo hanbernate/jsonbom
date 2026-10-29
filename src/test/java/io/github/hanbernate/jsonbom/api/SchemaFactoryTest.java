@@ -337,5 +337,5 @@ public class SchemaFactoryTest {
         assertEquals(0, childSchema.getChildren().size());
 
     }
-    
+
 }
