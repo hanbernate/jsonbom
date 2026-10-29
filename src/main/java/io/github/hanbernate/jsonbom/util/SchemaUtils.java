@@ -33,7 +33,7 @@ public class SchemaUtils {
      * @return the resolved class type
      * @since 0.2.0
      */
-    public static <T> Class<T> resolveActulaType(Field f, Class<?> parent, BomMapping bomMapping, Class<?> responseType){
+    public static <T> Class<T> resolveActualType(Field f, Class<?> parent, BomMapping bomMapping, Class<?> responseType){
         if(Void.class != getBomMappingValue(bomMapping, BomMapping::genericType, Void.class)) {
             return (Class<T>) bomMapping.genericType();
         }else if(responseType.isArray() || Collection.class.isAssignableFrom(responseType)){
@@ -71,7 +71,7 @@ public class SchemaUtils {
         }
 
         if(genericType instanceof WildcardType){
-            throw new JsonBomException("WildcardType is not supported. Plaes use @BomMapping(genericType=*) to specify generic type instead.");
+            throw new JsonBomException("WildcardType is not supported. Please use @BomMapping(genericType=*) to specify generic type instead.");
         }
         if(genericType instanceof TypeVariable){
             java.lang.reflect.Type actual = getGenericType((TypeVariable<?>) genericType, parent);
@@ -81,6 +81,9 @@ public class SchemaUtils {
             throw new JsonBomException("Fail parsing generic type:" + actual.getTypeName());
         }
         java.lang.reflect.Type type = ((ParameterizedType) genericType).getActualTypeArguments()[0];
+        if(type instanceof Class){
+            return (Class<T>) type;
+        }
         if(type instanceof TypeVariable){
             java.lang.reflect.Type actual = getGenericType((TypeVariable<?>) type, parent);
             if(actual instanceof Class){
@@ -90,7 +93,7 @@ public class SchemaUtils {
         }else if(type instanceof ParameterizedType){
             throw new JsonBomException("Nest generic type is not supported.");
         }else if(type instanceof WildcardType){
-            throw new JsonBomException("WildcardType is not supported. Plaes use @BomMapping(genericType=*) to specify generic type instead.");
+            throw new JsonBomException("WildcardType is not supported. Please use @BomMapping(genericType=*) to specify generic type instead.");
         }else if(type instanceof GenericArrayType){
             throw new JsonBomException("Generic array is not supported.");
         }

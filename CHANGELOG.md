@@ -3,7 +3,6 @@
 本文档记录项目所有重要变更，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
 ## [Unreleased]
-
 ### 0.1.2
 
 - 修复 Schema初始化时 可能导致 ClassCastException

@@ -168,7 +168,7 @@ public class DefaultSchemaFactoryImpl implements SchemaFactory {
         }
 
         // Priority 3: Handle generic type for collection fields
-        result.setActualType(SchemaUtils.resolveActulaType(f, parent.getActualType(), bomMapping, responseType));
+        result.setActualType(SchemaUtils.resolveActualType(f, parent.getActualType(), bomMapping, responseType));
 
         // Determine if this field should be treated as a leaf (value node)
         Class<?> actualType = result.getActualType();
